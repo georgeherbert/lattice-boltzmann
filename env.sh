@@ -2,3 +2,4 @@
 # compile and run to this file.
 
 module load languages/intel/2017.01
+module load Python/2.7.12-foss-2016b

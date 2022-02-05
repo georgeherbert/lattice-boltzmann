@@ -217,35 +217,35 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
   const float w0 = 4.f / 9.f; /* weighting factor */
   const float w1 = 1.f / 9.f; /* weighting factor */
   const float w2 = 1.f / 36.f; /* weighting factor */
-  int    tot_cells = 0; /* no. of cells used in calculation */
+  int tot_cells = 0; /* no. of cells used in calculation */
   float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
   /* loop over the cells in the grid */
   for (int jj = 0; jj < params.ny; jj++) {
     /* determine indices of north and south axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
-    int y_n = (jj + 1) % params.ny;
-    int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
+    const int y_n = (jj + 1) % params.ny;
+    const int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
     for (int ii = 0; ii < params.nx; ii++) {
     /* determine indices of east and west axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
-      int x_e = (ii + 1) % params.nx;
-      int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
+      const int x_e = (ii + 1) % params.nx;
+      const int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
 
-      int n = ii + jj*params.nx;
+      const int n = ii + jj*params.nx;
 
       /* propagate densities from neighbouring cells, following
       ** appropriate directions of travel and writing into
       ** speed variables */
-      float speeds_0 = cells[n].speeds[0]; /* central cell, no movement */
-      float speeds_1 = cells[x_w + jj*params.nx].speeds[1]; /* east */
-      float speeds_2 = cells[ii + y_s*params.nx].speeds[2]; /* north */
-      float speeds_3 = cells[x_e + jj*params.nx].speeds[3]; /* west */
-      float speeds_4 = cells[ii + y_n*params.nx].speeds[4]; /* south */
-      float speeds_5 = cells[x_w + y_s*params.nx].speeds[5]; /* north-east */
-      float speeds_6 = cells[x_e + y_s*params.nx].speeds[6]; /* north-west */
-      float speeds_7 = cells[x_e + y_n*params.nx].speeds[7]; /* south-west */
-      float speeds_8 = cells[x_w + y_n*params.nx].speeds[8]; /* south-east */
+      const float speeds_0 = cells[n].speeds[0]; /* central cell, no movement */
+      const float speeds_1 = cells[x_w + jj*params.nx].speeds[1]; /* east */
+      const float speeds_2 = cells[ii + y_s*params.nx].speeds[2]; /* north */
+      const float speeds_3 = cells[x_e + jj*params.nx].speeds[3]; /* west */
+      const float speeds_4 = cells[ii + y_n*params.nx].speeds[4]; /* south */
+      const float speeds_5 = cells[x_w + y_s*params.nx].speeds[5]; /* north-east */
+      const float speeds_6 = cells[x_e + y_s*params.nx].speeds[6]; /* north-west */
+      const float speeds_7 = cells[x_e + y_n*params.nx].speeds[7]; /* south-west */
+      const float speeds_8 = cells[x_w + y_n*params.nx].speeds[8]; /* south-east */
 
       /* if the cell contains an obstacle */
       if (obstacles[n]) {
@@ -263,15 +263,15 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
       /* don't consider occupied cells */
       else {
         /* compute local density total */
-        float local_density = speeds_0 + speeds_1 + speeds_2 + speeds_3 + speeds_4 + speeds_5 + speeds_6 + speeds_7 + speeds_8;
+        const float local_density = speeds_0 + speeds_1 + speeds_2 + speeds_3 + speeds_4 + speeds_5 + speeds_6 + speeds_7 + speeds_8;
 
         /* compute x velocity component */
-        float u_x = (speeds_1 + speeds_5 + speeds_8 - (speeds_3 + speeds_6 + speeds_7)) / local_density;
+        const float u_x = (speeds_1 + speeds_5 + speeds_8 - (speeds_3 + speeds_6 + speeds_7)) / local_density;
         /* compute y velocity component */
-        float u_y = (speeds_2 + speeds_5 + speeds_6 - (speeds_4 + speeds_7 + speeds_8)) / local_density;
+        const float u_y = (speeds_2 + speeds_5 + speeds_6 - (speeds_4 + speeds_7 + speeds_8)) / local_density;
 
         /* velocity squared */
-        float u_sq = u_x * u_x + u_y * u_y;
+        const float u_sq = u_x * u_x + u_y * u_y;
 
         /* directional velocity components */
         float u[NSPEEDS];

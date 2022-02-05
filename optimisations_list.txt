@@ -1,0 +1,6 @@
+# Serial Optimisation
+1. Intel compiler and optimisation flags (incomplete)
+2. Loop fusion
+	- Involved getting rid of tmp_cells and changing it to cells_new. New cells are written to cells_new. At the end of each time step, the pointers of cells_new and cells are swapped so next set of cell values can be written to the new "cell_new", based on the values of the new "cells" (i.e. the old "cells_new").
+	- Realised I could calculate the average velocity using the average velocity of the "temporary cells", since the values converge. Need to look into the maths behind this to make sure it always works.
+3. In the process of loop fusion, got rid of the unnecessary copying using a pointer swap.

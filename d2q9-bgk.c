@@ -211,6 +211,9 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
 
 float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles) {
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
+  const float c_sq_r = 3.f;
+  const float two_c_sq_r = 3.f / 2.f;
+  const float two_c_sq_sq_r = 9.f / 2.f;
   const float w0 = 4.f / 9.f; /* weighting factor */
   const float w1 = 1.f / 9.f; /* weighting factor */
   const float w2 = 1.f / 36.f; /* weighting factor */
@@ -229,10 +232,12 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
       int x_e = (ii + 1) % params.nx;
       int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
 
+      int n = ii + jj*params.nx;
+
       /* propagate densities from neighbouring cells, following
       ** appropriate directions of travel and writing into
       ** speed variables */
-      float speeds_0 = cells[ii + jj*params.nx].speeds[0]; /* central cell, no movement */
+      float speeds_0 = cells[n].speeds[0]; /* central cell, no movement */
       float speeds_1 = cells[x_w + jj*params.nx].speeds[1]; /* east */
       float speeds_2 = cells[ii + y_s*params.nx].speeds[2]; /* north */
       float speeds_3 = cells[x_e + jj*params.nx].speeds[3]; /* west */
@@ -243,17 +248,17 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
       float speeds_8 = cells[x_w + y_n*params.nx].speeds[8]; /* south-east */
 
       /* if the cell contains an obstacle */
-      if (obstacles[ii + jj*params.nx]) {
+      if (obstacles[n]) {
         /* run after propagate stage, so taking values from speed variables
         ** mirroring, and writing into cells_new grid */
-        cells_new[ii + jj*params.nx].speeds[1] = speeds_3;
-        cells_new[ii + jj*params.nx].speeds[2] = speeds_4;
-        cells_new[ii + jj*params.nx].speeds[3] = speeds_1;
-        cells_new[ii + jj*params.nx].speeds[4] = speeds_2;
-        cells_new[ii + jj*params.nx].speeds[5] = speeds_7;
-        cells_new[ii + jj*params.nx].speeds[6] = speeds_8;
-        cells_new[ii + jj*params.nx].speeds[7] = speeds_5;
-        cells_new[ii + jj*params.nx].speeds[8] = speeds_6;
+        cells_new[n].speeds[1] = speeds_3;
+        cells_new[n].speeds[2] = speeds_4;
+        cells_new[n].speeds[3] = speeds_1;
+        cells_new[n].speeds[4] = speeds_2;
+        cells_new[n].speeds[5] = speeds_7;
+        cells_new[n].speeds[6] = speeds_8;
+        cells_new[n].speeds[7] = speeds_5;
+        cells_new[n].speeds[8] = speeds_6;
       }
       /* don't consider occupied cells */
       else {
@@ -282,28 +287,28 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
         /* equilibrium densities */
         float d_equ[NSPEEDS];
         /* zero velocity density: weight w0 */
-        d_equ[0] = w0 * local_density * (1.f - u_sq / (2.f * c_sq));
+        d_equ[0] = w0 * local_density * (1.f - u_sq * two_c_sq_r);
         /* axis speeds: weight w1 */
-        d_equ[1] = w1 * local_density * (1.f + u[1] / c_sq + (u[1] * u[1]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        d_equ[2] = w1 * local_density * (1.f + u[2] / c_sq + (u[2] * u[2]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        d_equ[3] = w1 * local_density * (1.f + u[3] / c_sq + (u[3] * u[3]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        d_equ[4] = w1 * local_density * (1.f + u[4] / c_sq + (u[4] * u[4]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
+        d_equ[1] = w1 * local_density * (1.f + u[1] * c_sq_r + (u[1] * u[1]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
+        d_equ[2] = w1 * local_density * (1.f + u[2] * c_sq_r + (u[2] * u[2]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
+        d_equ[3] = w1 * local_density * (1.f + u[3] * c_sq_r + (u[3] * u[3]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
+        d_equ[4] = w1 * local_density * (1.f + u[4] * c_sq_r + (u[4] * u[4]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
         /* diagonal speeds: weight w2 */
-        d_equ[5] = w2 * local_density * (1.f + u[5] / c_sq + (u[5] * u[5]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        d_equ[6] = w2 * local_density * (1.f + u[6] / c_sq + (u[6] * u[6]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        d_equ[7] = w2 * local_density * (1.f + u[7] / c_sq + (u[7] * u[7]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        d_equ[8] = w2 * local_density * (1.f + u[8] / c_sq + (u[8] * u[8]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
+        d_equ[5] = w2 * local_density * (1.f + u[5] * c_sq_r + (u[5] * u[5]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
+        d_equ[6] = w2 * local_density * (1.f + u[6] * c_sq_r + (u[6] * u[6]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
+        d_equ[7] = w2 * local_density * (1.f + u[7] * c_sq_r + (u[7] * u[7]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
+        d_equ[8] = w2 * local_density * (1.f + u[8] * c_sq_r + (u[8] * u[8]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
 
         /* relaxation step */
-        cells_new[ii + jj*params.nx].speeds[0] = speeds_0 + params.omega * (d_equ[0] - speeds_0);
-        cells_new[ii + jj*params.nx].speeds[1] = speeds_1 + params.omega * (d_equ[1] - speeds_1);
-        cells_new[ii + jj*params.nx].speeds[2] = speeds_2 + params.omega * (d_equ[2] - speeds_2);
-        cells_new[ii + jj*params.nx].speeds[3] = speeds_3 + params.omega * (d_equ[3] - speeds_3);
-        cells_new[ii + jj*params.nx].speeds[4] = speeds_4 + params.omega * (d_equ[4] - speeds_4);
-        cells_new[ii + jj*params.nx].speeds[5] = speeds_5 + params.omega * (d_equ[5] - speeds_5);
-        cells_new[ii + jj*params.nx].speeds[6] = speeds_6 + params.omega * (d_equ[6] - speeds_6);
-        cells_new[ii + jj*params.nx].speeds[7] = speeds_7 + params.omega * (d_equ[7] - speeds_7);
-        cells_new[ii + jj*params.nx].speeds[8] = speeds_8 + params.omega * (d_equ[8] - speeds_8);
+        cells_new[n].speeds[0] = speeds_0 + params.omega * (d_equ[0] - speeds_0);
+        cells_new[n].speeds[1] = speeds_1 + params.omega * (d_equ[1] - speeds_1);
+        cells_new[n].speeds[2] = speeds_2 + params.omega * (d_equ[2] - speeds_2);
+        cells_new[n].speeds[3] = speeds_3 + params.omega * (d_equ[3] - speeds_3);
+        cells_new[n].speeds[4] = speeds_4 + params.omega * (d_equ[4] - speeds_4);
+        cells_new[n].speeds[5] = speeds_5 + params.omega * (d_equ[5] - speeds_5);
+        cells_new[n].speeds[6] = speeds_6 + params.omega * (d_equ[6] - speeds_6);
+        cells_new[n].speeds[7] = speeds_7 + params.omega * (d_equ[7] - speeds_7);
+        cells_new[n].speeds[8] = speeds_8 + params.omega * (d_equ[8] - speeds_8);
         
         tot_u += sqrtf(u_sq);
         ++tot_cells;

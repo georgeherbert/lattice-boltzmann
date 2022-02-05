@@ -93,7 +93,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
-int timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles);
+float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
 /* finalise, including freeing up allocated memory */
@@ -155,11 +155,11 @@ int main(int argc, char* argv[])
   for (int tt = 0; tt < params.maxIters; tt++)
   {
     accelerate_flow(params, cells, obstacles);
-    timestep(params, cells, cells_new, obstacles);
+    av_vels[tt] = timestep(params, cells, cells_new, obstacles);
     t_speed* temporary = cells;
     cells = cells_new;
     cells_new = temporary;
-    av_vels[tt] = av_velocity(params, cells, obstacles);
+    // av_vels[tt] = av_velocity(params, cells, obstacles);
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
@@ -224,12 +224,17 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
   return EXIT_SUCCESS;
 }
 
-int timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles)
+float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles)
 {
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
   const float w0 = 4.f / 9.f;  /* weighting factor */
   const float w1 = 1.f / 9.f;  /* weighting factor */
   const float w2 = 1.f / 36.f; /* weighting factor */
+
+  int    tot_cells = 0;  /* no. of cells used in calculation */
+  float tot_u;          /* accumulated magnitudes of velocity for each cell */
+  /* initialise */
+  tot_u = 0.f;
 
   /* loop over the cells in the grid
   ** NB the collision step is called after
@@ -351,11 +356,13 @@ int timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obst
         cells_new[ii + jj*params.nx].speeds[6] = speeds_6 + params.omega * (d_equ[6] - speeds_6);
         cells_new[ii + jj*params.nx].speeds[7] = speeds_7 + params.omega * (d_equ[7] - speeds_7);
         cells_new[ii + jj*params.nx].speeds[8] = speeds_8 + params.omega * (d_equ[8] - speeds_8);
+        
+        tot_u += sqrtf(u_sq);
+        ++tot_cells;
       }
     }
   }
-
-  return EXIT_SUCCESS;
+  return tot_u / (float)tot_cells;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles)

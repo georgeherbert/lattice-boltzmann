@@ -232,12 +232,10 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
       const int x_e = (ii + 1) % params.nx;
       const int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
 
-      const int n = ii + jj*params.nx;
-
       /* propagate densities from neighbouring cells, following
       ** appropriate directions of travel and writing into
       ** speed variables */
-      const float speeds_0 = cells[n].speeds[0]; /* central cell, no movement */
+      const float speeds_0 = cells[ii + jj*params.nx].speeds[0]; /* central cell, no movement */
       const float speeds_1 = cells[x_w + jj*params.nx].speeds[1]; /* east */
       const float speeds_2 = cells[ii + y_s*params.nx].speeds[2]; /* north */
       const float speeds_3 = cells[x_e + jj*params.nx].speeds[3]; /* west */
@@ -248,17 +246,17 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
       const float speeds_8 = cells[x_w + y_n*params.nx].speeds[8]; /* south-east */
 
       /* if the cell contains an obstacle */
-      if (obstacles[n]) {
+      if (obstacles[ii + jj*params.nx]) {
         /* run after propagate stage, so taking values from speed variables
         ** mirroring, and writing into cells_new grid */
-        cells_new[n].speeds[1] = speeds_3;
-        cells_new[n].speeds[2] = speeds_4;
-        cells_new[n].speeds[3] = speeds_1;
-        cells_new[n].speeds[4] = speeds_2;
-        cells_new[n].speeds[5] = speeds_7;
-        cells_new[n].speeds[6] = speeds_8;
-        cells_new[n].speeds[7] = speeds_5;
-        cells_new[n].speeds[8] = speeds_6;
+        cells_new[ii + jj*params.nx].speeds[1] = speeds_3;
+        cells_new[ii + jj*params.nx].speeds[2] = speeds_4;
+        cells_new[ii + jj*params.nx].speeds[3] = speeds_1;
+        cells_new[ii + jj*params.nx].speeds[4] = speeds_2;
+        cells_new[ii + jj*params.nx].speeds[5] = speeds_7;
+        cells_new[ii + jj*params.nx].speeds[6] = speeds_8;
+        cells_new[ii + jj*params.nx].speeds[7] = speeds_5;
+        cells_new[ii + jj*params.nx].speeds[8] = speeds_6;
       }
       /* don't consider occupied cells */
       else {
@@ -300,15 +298,15 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
         d_equ[8] = w2 * local_density * (1.f + u[8] * c_sq_r + (u[8] * u[8]) * two_c_sq_sq_r - u_sq * two_c_sq_r);
 
         /* relaxation step */
-        cells_new[n].speeds[0] = speeds_0 + params.omega * (d_equ[0] - speeds_0);
-        cells_new[n].speeds[1] = speeds_1 + params.omega * (d_equ[1] - speeds_1);
-        cells_new[n].speeds[2] = speeds_2 + params.omega * (d_equ[2] - speeds_2);
-        cells_new[n].speeds[3] = speeds_3 + params.omega * (d_equ[3] - speeds_3);
-        cells_new[n].speeds[4] = speeds_4 + params.omega * (d_equ[4] - speeds_4);
-        cells_new[n].speeds[5] = speeds_5 + params.omega * (d_equ[5] - speeds_5);
-        cells_new[n].speeds[6] = speeds_6 + params.omega * (d_equ[6] - speeds_6);
-        cells_new[n].speeds[7] = speeds_7 + params.omega * (d_equ[7] - speeds_7);
-        cells_new[n].speeds[8] = speeds_8 + params.omega * (d_equ[8] - speeds_8);
+        cells_new[ii + jj*params.nx].speeds[0] = speeds_0 + params.omega * (d_equ[0] - speeds_0);
+        cells_new[ii + jj*params.nx].speeds[1] = speeds_1 + params.omega * (d_equ[1] - speeds_1);
+        cells_new[ii + jj*params.nx].speeds[2] = speeds_2 + params.omega * (d_equ[2] - speeds_2);
+        cells_new[ii + jj*params.nx].speeds[3] = speeds_3 + params.omega * (d_equ[3] - speeds_3);
+        cells_new[ii + jj*params.nx].speeds[4] = speeds_4 + params.omega * (d_equ[4] - speeds_4);
+        cells_new[ii + jj*params.nx].speeds[5] = speeds_5 + params.omega * (d_equ[5] - speeds_5);
+        cells_new[ii + jj*params.nx].speeds[6] = speeds_6 + params.omega * (d_equ[6] - speeds_6);
+        cells_new[ii + jj*params.nx].speeds[7] = speeds_7 + params.omega * (d_equ[7] - speeds_7);
+        cells_new[ii + jj*params.nx].speeds[8] = speeds_8 + params.omega * (d_equ[8] - speeds_8);
         
         tot_u += sqrtf(u_sq);
         ++tot_cells;

@@ -56,9 +56,9 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#define NSPEEDS         9
-#define FINALSTATEFILE  "final_state.dat"
-#define AVVELSFILE      "av_vels.dat"
+#define NSPEEDS 9
+#define FINALSTATEFILE "final_state.dat"
+#define AVVELSFILE "av_vels.dat"
 
 /* struct to hold the parameter values */
 typedef struct {
@@ -263,9 +263,8 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
         /* compute local density total */
         const float local_density = speeds_0 + speeds_1 + speeds_2 + speeds_3 + speeds_4 + speeds_5 + speeds_6 + speeds_7 + speeds_8;
 
-        /* compute x velocity component */
+        /* compute x and y velocity component */
         const float u_x = (speeds_1 + speeds_5 + speeds_8 - (speeds_3 + speeds_6 + speeds_7)) / local_density;
-        /* compute y velocity component */
         const float u_y = (speeds_2 + speeds_5 + speeds_6 - (speeds_4 + speeds_7 + speeds_8)) / local_density;
 
         /* velocity squared */
@@ -273,15 +272,6 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
 
         /* directional velocity components */
         const float u[NSPEEDS] = {u_x, u_y, -u_x, -u_y, u_x + u_y, -u_x + u_y, -u_x - u_y, u_x - u_y};
-        // float u[NSPEEDS];
-        // u[1] = u_x; /* east */
-        // u[2] = u_y; /* north */
-        // u[3] = -u_x; /* west */
-        // u[4] = -u_y; /* south */
-        // u[5] = u_x + u_y; /* north-east */
-        // u[6] = -u_x + u_y;  /* north-west */
-        // u[7] = -u_x - u_y;  /* south-west */
-        // u[8] = u_x - u_y;  /* south-east */
         
         /* equilibrium densities */
         const float d_equ[NSPEEDS] = {
@@ -502,7 +492,6 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
 
   return EXIT_SUCCESS;
 }
-
 
 float calc_reynolds(const t_param params, t_speed* cells, int* obstacles) {
   const float viscosity = 1.f / 6.f * (2.f / params.omega - 1.f);

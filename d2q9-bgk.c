@@ -69,6 +69,7 @@ typedef struct {
   float density; /* density per link */
   float accel; /* density redistribution */
   float omega; /* relaxation parameter */
+  float num_non_obstacles_r;
 } t_param;
 
 /* struct to hold the 'speed' values */
@@ -225,7 +226,6 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
   const float w0 = 4.f / 9.f; /* weighting factor */
   const float w1 = 1.f / 9.f; /* weighting factor */
   const float w2 = 1.f / 36.f; /* weighting factor */
-  int tot_cells = 0; /* no. of cells used in calculation */
   float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
   __assume(params.ny % 2 == 0);
@@ -271,7 +271,7 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
     ** respecting periodic boundary conditions (wrap around) */
     const int y_n = (jj + 1) % params.ny;
     const int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
-    #pragma omp simd reduction(+:tot_cells) reduction(+:tot_u) 
+    #pragma omp simd reduction(+:tot_u) 
     for (int ii = 0; ii < params.nx; ii++) {
     /* determine indices of east and west axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
@@ -336,10 +336,9 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
       cells_new->speeds_8[n] = o ? speeds[6] : speeds[8] + params.omega * (d_equ[8] - speeds[8]);
       
       tot_u += o ? 0 : sqrtf(u_sq);
-      tot_cells += 1 - o;
     }
   }
-  return tot_u / tot_cells;
+  return tot_u * params.num_non_obstacles_r;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles) {
@@ -509,6 +508,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     die(message, __LINE__, __FILE__);
   }
 
+  int num_obstacles = 0;
   /* read-in the blocked cells list */
   while ((retval = fscanf(fp, "%d %d %d\n", &xx, &yy, &blocked)) != EOF) {
     /* some checks */
@@ -519,7 +519,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
     /* assign to array */
     (*obstacles_ptr)[xx + yy*params->nx] = blocked;
+    ++num_obstacles;
   }
+  params->num_non_obstacles_r = 1.f / (params->nx * params->ny - num_obstacles);
 
   /* and close the file */
   fclose(fp);

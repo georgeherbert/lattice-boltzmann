@@ -271,7 +271,7 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
     ** respecting periodic boundary conditions (wrap around) */
     const int y_n = (jj + 1) % params.ny;
     const int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
-    #pragma omp simd reduction(+:tot_u) 
+    #pragma omp simd reduction(+:tot_u)
     for (int ii = 0; ii < params.nx; ii++) {
     /* determine indices of east and west axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */

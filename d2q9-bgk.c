@@ -266,6 +266,7 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
   __assume_aligned(cells_new->speeds_8, 64);
   __assume_aligned(obstacles, 64);
   /* loop over the cells in the grid */
+  #pragma omp parallel for reduction(+:tot_u)
   for (int jj = 0; jj < params.ny; jj++) {
     /* determine indices of north and south axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
@@ -323,8 +324,7 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
 
       const int o = obstacles[n];
 
-      /* relaxation step and obstacles step combined*/
-            
+      /* relaxation step and obstacles step combined */
       cells_new->speeds_0[n] = o ? speeds[0] : speeds[0] + params.omega * (d_equ[0] - speeds[0]);
       cells_new->speeds_1[n] = o ? speeds[3] : speeds[1] + params.omega * (d_equ[1] - speeds[1]);
       cells_new->speeds_2[n] = o ? speeds[4] : speeds[2] + params.omega * (d_equ[2] - speeds[2]);

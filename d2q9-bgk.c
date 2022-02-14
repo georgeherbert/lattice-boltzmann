@@ -476,7 +476,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   float w1 = params->density / 9.f;
   float w2 = params->density / 36.f;
 
+  #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++) {
+    #pragma omp simd
     for (int ii = 0; ii < params->nx; ii++) {
       /* centre */
       (*cells_ptr)->speeds_0[ii + jj*params->nx] = w0;
@@ -494,7 +496,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   }
 
   /* first set all cells in obstacle array to zero */
+  #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++) {
+    #pragma omp simd
     for (int ii = 0; ii < params->nx; ii++) {
       (*obstacles_ptr)[ii + jj*params->nx] = 0;
     }

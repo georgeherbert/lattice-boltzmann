@@ -3,7 +3,6 @@
 EXE=d2q9-bgk
 
 CC=icc
-#CFLAGS= -std=c99 -Wall -Ofast -xAVX -restrict -qopt-report-phase=vec -qopt-report=5 -qopt-report-file=stdout
 CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX -qopenmp
 LIBS = -lm
 

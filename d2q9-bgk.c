@@ -69,7 +69,6 @@ typedef struct {
   float density; /* density per link */
   float accel; /* density redistribution */
   float omega; /* relaxation parameter */
-  float one_sub_omega;
   float num_non_obstacles_r;
 } t_param;
 
@@ -418,12 +417,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   if (retval != 1) die("could not read param file: accel", __LINE__, __FILE__);
 
   retval = fscanf(fp, "%f\n", &(params->omega));
-  if (retval != 1) {
-    die("could not read param file: omega", __LINE__, __FILE__);
-  }
-  else {
-    params->one_sub_omega = 1 - params->omega;
-  };
+  if (retval != 1) die("could not read param file: omega", __LINE__, __FILE__);
 
   /* and close up the file */
   fclose(fp);

@@ -311,33 +311,33 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
       const float u_sq = u_x * u_x + u_y * u_y;
 
       /* directional velocity components */
-      const float u[NSPEEDS] = {u_x, u_y, -u_x, -u_y, u_x + u_y, -u_x + u_y, -u_x - u_y, u_x - u_y};
-      
-      const int o = obstacles[n];
+      // const float u[NSPEEDS] = {u_x, u_y, -u_x, -u_y, u_x + u_y, -u_x + u_y, -u_x - u_y, u_x - u_y};
 
       /* equilibrium densities */
       const float d_equ[NSPEEDS] = {
         w0 * local_density * (1.f - u_sq * two_c_sq_r),
-        w1 * local_density * (1.f + u[0] * c_sq_r + (u[0] * u[0]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w1 * local_density * (1.f + u[1] * c_sq_r + (u[1] * u[1]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w1 * local_density * (1.f + u[2] * c_sq_r + (u[2] * u[2]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w1 * local_density * (1.f + u[3] * c_sq_r + (u[3] * u[3]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w2 * local_density * (1.f + u[4] * c_sq_r + (u[4] * u[4]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w2 * local_density * (1.f + u[5] * c_sq_r + (u[5] * u[5]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w2 * local_density * (1.f + u[6] * c_sq_r + (u[6] * u[6]) * two_c_sq_sq_r - u_sq * two_c_sq_r),
-        w2 * local_density * (1.f + u[7] * c_sq_r + (u[7] * u[7]) * two_c_sq_sq_r - u_sq * two_c_sq_r)
+        w1 * local_density * (1.f + u_x * c_sq_r + (u_x * u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w1 * local_density * (1.f + u_y * c_sq_r + (u_y * u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w1 * local_density * (1.f - u_x * c_sq_r + (u_x * u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w1 * local_density * (1.f - u_y * c_sq_r + (u_y * u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w2 * local_density * (1.f + (u_x + u_y) * c_sq_r + ((u_x + u_y) * (u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w2 * local_density * (1.f + (-u_x + u_y) * c_sq_r + ((-u_x + u_y) * (-u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w2 * local_density * (1.f + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r),
+        w2 * local_density * (1.f + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r)
       };
 
+      const int o = obstacles[n];
+
       /* relaxation step and obstacles step combined */
-      cells_new->speeds_0[n] = o ? speeds[0] : params.omega * d_equ[0] + speeds[0] * params.one_sub_omega;
-      cells_new->speeds_1[n] = o ? speeds[3] : params.omega * d_equ[1] + speeds[1] * params.one_sub_omega;
-      cells_new->speeds_2[n] = o ? speeds[4] : params.omega * d_equ[2] + speeds[2] * params.one_sub_omega;
-      cells_new->speeds_3[n] = o ? speeds[1] : params.omega * d_equ[3] + speeds[3] * params.one_sub_omega;
-      cells_new->speeds_4[n] = o ? speeds[2] : params.omega * d_equ[4] + speeds[4] * params.one_sub_omega;
-      cells_new->speeds_5[n] = o ? speeds[7] : params.omega * d_equ[5] + speeds[5] * params.one_sub_omega;
-      cells_new->speeds_6[n] = o ? speeds[8] : params.omega * d_equ[6] + speeds[6] * params.one_sub_omega;
-      cells_new->speeds_7[n] = o ? speeds[5] : params.omega * d_equ[7] + speeds[7] * params.one_sub_omega;
-      cells_new->speeds_8[n] = o ? speeds[6] : params.omega * d_equ[8] + speeds[8] * params.one_sub_omega;
+      cells_new->speeds_0[n] = o ? speeds[0] : speeds[0] + params.omega * (d_equ[0] - speeds[0]);
+      cells_new->speeds_1[n] = o ? speeds[3] : speeds[1] + params.omega * (d_equ[1] - speeds[1]);
+      cells_new->speeds_2[n] = o ? speeds[4] : speeds[2] + params.omega * (d_equ[2] - speeds[2]);
+      cells_new->speeds_3[n] = o ? speeds[1] : speeds[3] + params.omega * (d_equ[3] - speeds[3]);
+      cells_new->speeds_4[n] = o ? speeds[2] : speeds[4] + params.omega * (d_equ[4] - speeds[4]);
+      cells_new->speeds_5[n] = o ? speeds[7] : speeds[5] + params.omega * (d_equ[5] - speeds[5]);
+      cells_new->speeds_6[n] = o ? speeds[8] : speeds[6] + params.omega * (d_equ[6] - speeds[6]);
+      cells_new->speeds_7[n] = o ? speeds[5] : speeds[7] + params.omega * (d_equ[7] - speeds[7]);
+      cells_new->speeds_8[n] = o ? speeds[6] : speeds[8] + params.omega * (d_equ[8] - speeds[8]);
       
       tot_u += o ? 0 : sqrtf(u_sq);
     }

@@ -1,0 +1,30 @@
+Running on host compute101.bc4.acrc.priv
+Time is Tue Feb 15 17:40:27 GMT 2022
+Directory is /user/home/cj19328/lbm
+Slurm job ID is 10043975
+This job runs on the following machines:
+compute101
+==done==
+Reynolds number:		9.756026268005E+00
+Elapsed Init time:			0.009337 (s)
+Elapsed Compute time:			0.733016 (s)
+Elapsed Collate time:			0.000000 (s)
+Elapsed Total time:			0.742353 (s)
+==done==
+Reynolds number:		3.716293716431E+01
+Elapsed Init time:			0.005397 (s)
+Elapsed Compute time:			0.954078 (s)
+Elapsed Collate time:			0.000000 (s)
+Elapsed Total time:			0.959475 (s)
+==done==
+Reynolds number:		1.006092643738E+01
+Elapsed Init time:			0.005466 (s)
+Elapsed Compute time:			2.824538 (s)
+Elapsed Collate time:			0.000000 (s)
+Elapsed Total time:			2.830004 (s)
+==done==
+Reynolds number:		3.376235485077E+00
+Elapsed Init time:			0.017418 (s)
+Elapsed Compute time:			11.403661 (s)
+Elapsed Collate time:			0.000000 (s)
+Elapsed Total time:			11.421079 (s)

@@ -1,16 +1,16 @@
 \documentclass[11pt, a4paper]{article}
 \usepackage[a4paper]{geometry}
+\usepackage[style = numeric, sorting = none, urldate = long]{biblatex}
 % \usepackage{amsmath}
 % \usepackage{graphicx}
 % \usepackage{subfig}
-\usepackage[style = numeric, sorting = none]{biblatex}
- 
+
 % \graphicspath{{./images/}}
 \addbibresource{refs.bib}
 
 \author{
-  George Herbert\\
-  \texttt{cj19328@bristol.ac.uk}
+    George Herbert\\
+    \texttt{cj19328@bristol.ac.uk}
 }
 
 \title{Optimisations and Parallelism of d2q9-bgk.c}
@@ -19,13 +19,36 @@
 \maketitle
 
 \begin{abstract}
-    \texttt{d2q9-bgk.c} implements the Lattice Boltzmann methods to simulate a fluid density on a lattice.
+    \texttt{d2q9-bgk.c} implements the Lattice Boltzmann methods (LBM) to simulate a fluid density on a lattice.
     The original \texttt{d2q9-bgk.c} code was unoptimised and not parallelised.
     This report outlines the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c}, as well as a detailed analysis of those techniques.
     To do so, this report is split into several sections corresponding to different iterations of my code.
 \end{abstract}
 
 \section{Original code}
+
+\begin{table}[htbp]
+    \begin{center}
+    \caption{Performance of original code}\label{tab:original}
+    \begin{tabular}{l | l l l l} 
+        \hline\hline
+        Test case&$128 \times 128$&$128 \times 256$&$256 \times 256$&$1024 \times 1024$\\
+        \hline
+        Time (s)&0&0&0&0\\
+        \hline
+      \end{tabular}
+    \end{center}
+\end{table} 
+
+I compiled the original, unoptimised \texttt{d2q9-bgk.c} using the GNU Compiler Collection (GCC) with the following command:
+\[
+    \texttt{gcc -std=c99 -Wall d2q9-bgk.c -lm -o d2q9-bgk}.
+\]
+Figure \ref{tab:original} contains the results of benchmarking the ELF file produced for each of the test cases.
+I benchmarked the original unoptimised implementation so that I could measure the performance increase of further implementations.
+I produced the benchmark by taking an average of the total time of 10 runs on BlueCrystal Phase 4's (BC4's) compute nodes.
+Each of BC4's compute nodes is a Lenovo nx360 M5, which contains two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+It is important to take an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes; not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
 
 \section{Serial optimisations}
 

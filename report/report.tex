@@ -1,0 +1,56 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[a4paper]{geometry}
+% \usepackage{amsmath}
+% \usepackage{graphicx}
+% \usepackage{subfig}
+\usepackage[style = numeric, sorting = none]{biblatex}
+ 
+% \graphicspath{{./images/}}
+\addbibresource{refs.bib}
+
+\author{
+  George Herbert\\
+  \texttt{cj19328@bristol.ac.uk}
+}
+
+\title{Optimisations and Parallelism of d2q9-bgk.c}
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    \texttt{d2q9-bgk.c} implements the Lattice Boltzmann methods to simulate a fluid density on a lattice.
+    The original \texttt{d2q9-bgk.c} code was unoptimised and not parallelised.
+    This report outlines the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c}, as well as a detailed analysis of those techniques.
+    To do so, this report is split into several sections corresponding to different iterations of my code.
+\end{abstract}
+
+\section{Original code}
+
+\section{Serial optimisations}
+
+\subsection{Compiler}
+
+\subsection{Code changes}
+
+\subsection{Results}
+
+\section{Vectorization}
+
+\subsection{Code changes}
+
+\subsection{Results}
+
+\section{Parallelism}
+
+\subsection{OpenMP}
+
+\subsection{Results}
+
+\clearpage
+
+\onecolumn{
+  \printbibliography
+}
+
+\end{document}

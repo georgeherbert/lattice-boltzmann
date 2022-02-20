@@ -2,10 +2,10 @@
 \usepackage[a4paper, left = 2cm, right = 2cm, top = 2cm, bottom = 2cm]{geometry}
 \usepackage[style = numeric, sorting = none, urldate = long]{biblatex}
 \usepackage{listings}
+\usepackage{subfig}
 % \usepackage{amsmath}
 % \usepackage{graphicx}
-% \usepackage{subfig}
-\usepackage{subfig}
+
 
 % \graphicspath{{./images/}}
 \addbibresource{refs.bib}
@@ -51,7 +51,7 @@ gcc -std=c99 -Wall d2q9-bgk.c -lm -o d2q9-bgk.
 
 
 Figure \ref{tab:original} contains the total time to initialise, compute and collate each of the test cases when running the ELF file.
-It was important to measure the original code, so that I could quantify the performnace improvements of my latter implementations.
+It was important to measure the original code, so that I could quantify the performance improvements of my latter implementations.
 I measured each of the total times by taking an average of 10 runs on BlueCrystal Phase 4's (BC4's) compute nodes.
 Each of BC4's compute nodes is a Lenovo nx360 M5, which contains two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
 I took an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes.
@@ -59,9 +59,20 @@ I took an average of multiple runs because of the variation between runs, which 
 
 \section{Serial optimisations}
 
-\subsection{Compiler}
+\subsection{Changes}
 
-\subsection{Code changes}
+I changed from GCC to the Intel® C Compiler, since it usually provides better optimised code for Intel processors.
+Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
+
+I applied loop fusion to decrease the number of memory accesses in my code.
+Previously, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
+By fusing the four loops in these procedures into one, I was able to drastically decrease the number of memory accesses, thereby improving the performance of my program.
+
+Moreover, as a result of implementing the loop fusion, I was also able to implement a pointer swap to eliminate unnecessary swaping between the \texttt{cells} and \texttt{tmp\_cells} arrays.
+New values of cells are written to the \texttt{cells\_new} array (renamed from \texttt{tmp\_cells} to more accurately describe its new purpose).
+At the end of each timestep, the memory locations the \texttt{cells\_new} and \texttt{cells} variables are pointing to are swapped.
+
+I also improved the arithmetic within each timestep to improve the performance.
 
 \subsection{Results}
 
@@ -83,7 +94,7 @@ I took an average of multiple runs because of the variation between runs, which 
 
 \section{Vectorization}
 
-\subsection{Code changes}
+\subsection{Changes}
 
 \subsection{Results}
 

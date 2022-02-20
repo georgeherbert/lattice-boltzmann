@@ -1,9 +1,11 @@
-\documentclass[11pt, a4paper]{article}
-\usepackage[a4paper]{geometry}
+\documentclass[11pt, twocolumn, a4paper]{article}
+\usepackage[a4paper, left = 2cm, right = 2cm, top = 2cm, bottom = 2cm]{geometry}
 \usepackage[style = numeric, sorting = none, urldate = long]{biblatex}
+\usepackage{listings}
 % \usepackage{amsmath}
 % \usepackage{graphicx}
 % \usepackage{subfig}
+\usepackage{subfig}
 
 % \graphicspath{{./images/}}
 \addbibresource{refs.bib}
@@ -20,35 +22,40 @@
 
 \begin{abstract}
     \texttt{d2q9-bgk.c} implements the Lattice Boltzmann methods (LBM) to simulate a fluid density on a lattice.
-    The original \texttt{d2q9-bgk.c} code was unoptimised and not parallelised.
     This report outlines the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c}, as well as a detailed analysis of those techniques.
     To do so, this report is split into several sections corresponding to different iterations of my code.
 \end{abstract}
 
 \section{Original code}
 
+I compiled the original \texttt{d2q9-bgk.c} using the GNU Compiler Collection (GCC) with the following command:
+\begin{lstlisting}[language=bash, breaklines=true]
+gcc -std=c99 -Wall d2q9-bgk.c -lm -o d2q9-bgk.
+\end{lstlisting}
+
 \begin{table}[htbp]
     \begin{center}
-    \caption{Performance of original code}\label{tab:original}
-    \begin{tabular}{l | l l l l} 
+    \caption{Total time of the original code for test cases of different sizes}\label{tab:original}
+    \begin{tabular}{l | l} 
         \hline\hline
-        Test case&$128 \times 128$&$128 \times 256$&$256 \times 256$&$1024 \times 1024$\\
+        Test Case Size&Time (s)\\
         \hline
-        Time (s)&0&0&0&0\\
+        $128 \times 128$&0\\
+        $128 \times 256$&0\\
+        $256 \times 256$&0\\
+        $1024 \times 1024$&0\\
         \hline
       \end{tabular}
     \end{center}
 \end{table} 
 
-I compiled the original, unoptimised \texttt{d2q9-bgk.c} using the GNU Compiler Collection (GCC) with the following command:
-\[
-    \texttt{gcc -std=c99 -Wall d2q9-bgk.c -lm -o d2q9-bgk}.
-\]
-Figure \ref{tab:original} contains the results of benchmarking the ELF file produced for each of the test cases.
-I benchmarked the original unoptimised implementation so that I could measure the performance increase of further implementations.
-I produced the benchmark by taking an average of the total time of 10 runs on BlueCrystal Phase 4's (BC4's) compute nodes.
+
+Figure \ref{tab:original} contains the total time to initialise, compute and collate each of the test cases when running the ELF file.
+It was important to measure the original code, so that I could quantify the performnace improvements of my latter implementations.
+I measured each of the total times by taking an average of 10 runs on BlueCrystal Phase 4's (BC4's) compute nodes.
 Each of BC4's compute nodes is a Lenovo nx360 M5, which contains two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-It is important to take an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes; not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
+I took an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes.
+% Not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
 
 \section{Serial optimisations}
 
@@ -58,17 +65,65 @@ It is important to take an average of multiple runs because of the variation bet
 
 \subsection{Results}
 
+\begin{table}[htbp]
+    \begin{center}
+    \caption{Total time of the serial optimised code for test cases of different sizes}\label{tab:serial_optimised}
+    \begin{tabular}{l | l} 
+        \hline\hline
+        Test Case Size&Time (s)\\
+        \hline
+        $128 \times 128$&0\\
+        $128 \times 256$&0\\
+        $256 \times 256$&0\\
+        $1024 \times 1024$&0\\
+        \hline
+      \end{tabular}
+    \end{center}
+\end{table} 
+
 \section{Vectorization}
 
 \subsection{Code changes}
 
 \subsection{Results}
 
+\begin{table}[htbp]
+    \begin{center}
+    \caption{Total time of the vectorized code for test cases of different sizes}\label{tab:vectorized}
+    \begin{tabular}{l | l} 
+        \hline\hline
+        Test Case Size&Time (s)\\
+        \hline
+        $128 \times 128$&0\\
+        $128 \times 256$&0\\
+        $256 \times 256$&0\\
+        $1024 \times 1024$&0\\
+        \hline
+      \end{tabular}
+    \end{center}
+\end{table} 
+
 \section{Parallelism}
 
 \subsection{OpenMP}
 
 \subsection{Results}
+
+\begin{table}[htbp]
+    \begin{center}
+    \caption{Total time of the parallelised code for test cases of different sizes}\label{tab:parallelised}
+    \begin{tabular}{l | l} 
+        \hline\hline
+        Test Case Size&Time (s)\\
+        \hline
+        $128 \times 128$&0\\
+        $128 \times 256$&0\\
+        $256 \times 256$&0\\
+        $1024 \times 1024$&0\\
+        \hline
+      \end{tabular}
+    \end{center}
+\end{table} 
 
 \clearpage
 

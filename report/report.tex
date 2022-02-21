@@ -15,7 +15,7 @@
     \texttt{cj19328@bristol.ac.uk}
 }
 
-\title{Optimisations and Parallelism of d2q9-bgk.c}
+\title{Optimising and Parallelising d2q9-bgk.c}
 \begin{document}
 
 \maketitle
@@ -26,7 +26,7 @@
     To do so, this report is split into several sections corresponding to different iterations of my code.
 \end{abstract}
 
-\section{Original code}
+\section{Original Code}
 
 I compiled the original \texttt{d2q9-bgk.c} using the GNU Compiler Collection (GCC) with the following command:
 \begin{lstlisting}[language=bash, breaklines=true, breakatwhitespace=true]
@@ -79,7 +79,7 @@ I took an average of multiple runs because of the variation between runs, which 
 I compiled my serial optimised implementation using the Intel® C Compiler as opposed to GCC, since it provides better optimised code for Intel processors.
 Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
 
-\subsection{Loop fusion and pointer swap}
+\subsection{Loop Fusion and Pointer Swap}
 
 \begin{table}[htbp]
   \begin{center}
@@ -108,7 +108,7 @@ The original code had a significant quantity of value copying between the \textt
 I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
 Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
 
-\subsection{Arithmetic improvements}
+\subsection{Arithmetic Improvements}
 
 \begin{table}[htbp]
   \begin{center}

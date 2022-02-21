@@ -29,26 +29,25 @@
 \section{Original code}
 
 I compiled the original \texttt{d2q9-bgk.c} using the GNU Compiler Collection (GCC) with the following command:
-\begin{lstlisting}[language=bash, breaklines=true]
-gcc -std=c99 -Wall d2q9-bgk.c -lm -o d2q9-bgk.
+\begin{lstlisting}[language=bash, breaklines=true, breakatwhitespace=true]
+gcc -std=c99 -Wall -O3 d2q9-bgk.c -lm -o d2q9-bgk.
 \end{lstlisting}
 
 \begin{table}[htbp]
     \begin{center}
-    \caption{Total time of the original code for test cases of different sizes}\label{tab:original}
+    \caption{Total times of the original code}\label{tab:original}
     \begin{tabular}{l | l} 
         \hline\hline
         Test Case Size&Time (s)\\
         \hline
-        $128 \times 128$&\texttt{0}\\
-        $128 \times 256$&\texttt{0}\\
-        $256 \times 256$&\texttt{0}\\
-        $1024 \times 1024$&\texttt{0}\\
+        $128 \times 128$&\texttt{ 29.16}\\
+        $128 \times 256$&\texttt{ 58.71}\\
+        $256 \times 256$&\texttt{233.32}\\
+        $1024 \times 1024$&\texttt{980.89}\\
         \hline
       \end{tabular}
     \end{center}
 \end{table} 
-
 
 Figure \ref{tab:original} contains the total time to initialise, compute and collate each of the test cases when running the ELF file produced.
 It was important to measure the original code, so that I could quantify the performance improvements of my latter implementations.
@@ -57,12 +56,46 @@ Each of BC4's compute nodes is a Lenovo nx360 M5, which contains two 14-core 2.4
 I took an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes.
 % Not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
 
-\section{Serial optimised}
+\section{Serial Optimisations}
 
-\subsection{Optimisations}
+\subsection{Compiler}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Total times after compiler changes}\label{tab:compiler_changes}
+  \begin{tabular}{l | l} 
+      \hline\hline
+      Test Case Size&Time (s)\\
+      \hline
+      $128 \times 128$&\texttt{ 19.10}\\
+      $128 \times 256$&\texttt{ 38.49}\\
+      $256 \times 256$&\texttt{153.39}\\
+      $1024 \times 1024$&\texttt{621.52}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table} 
 
 I compiled my serial optimised implementation using the Intel® C Compiler as opposed to GCC, since it provides better optimised code for Intel processors.
 Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
+
+\subsection{Loop fusion and pointer swap}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Total times after loop fusion and pointer swap}\label{tab:loop_fusion_pointer_swap}
+  \begin{tabular}{l | l} 
+      \hline\hline
+      Test Case Size&Time (s)\\
+      \hline
+      $128 \times 128$&\texttt{ 19.10}\\
+      $128 \times 256$&\texttt{ 38.49}\\
+      $256 \times 256$&\texttt{153.39}\\
+      $1024 \times 1024$&\texttt{621.52}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table} 
 
 LBM is a memory bound problem.
 As a result of this, there was a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
@@ -75,7 +108,25 @@ The original code had a significant quantity of value copying between the \textt
 I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
 Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
 
-Despite the compiler being able to optimise the arithmetic within each timestep without making any changes to the code, there were still some manual improvements that I made to improve the performance of the program.
+\subsection{Arithmetic improvements}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Total times after arithmetic improvements}\label{tab:arithmetic_improvements}
+  \begin{tabular}{l | l} 
+      \hline\hline
+      Test Case Size&Time (s)\\
+      \hline
+      $128 \times 128$&\texttt{ 19.10}\\
+      $128 \times 256$&\texttt{ 38.49}\\
+      $256 \times 256$&\texttt{153.39}\\
+      $1024 \times 1024$&\texttt{621.52}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table} 
+
+Despite the compiler being able to partially optimise the arithmetic within each timestep without making any changes to the code, there were still some manual improvements that I made to improve the performance of the program.
 Division is a very slow arithmetic operation relative to multiplication.
 Therefore, to eliminate a large number of unnecessary division operations I precalculated several values including:
 \[
@@ -88,34 +139,11 @@ Additionally, I noticed that the number of cells in the grid that were not obsta
 I eliminated this inefficiency by counting number of cells that were not obstacles only once (during the initialisation phase).
 I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
 
-
-\subsection{Results}
-
-\begin{table}[htbp]
-    \begin{center}
-    \caption{Total time of the serial optimised code for test cases of different sizes}\label{tab:serial_optimised}
-    \begin{tabular}{l | l} 
-        \hline\hline
-        Test Case Size&Time (s)\\
-        \hline
-        $128 \times 128$&\texttt{ 19.10}\\
-        $128 \times 256$&\texttt{ 38.49}\\
-        $256 \times 256$&\texttt{153.39}\\
-        $1024 \times 1024$&\texttt{621.52}\\
-        \hline
-      \end{tabular}
-    \end{center}
-\end{table} 
-
-\section{Vectorized}
-
-\subsection{Optimisations}
-
-\subsection{Results}
+\subsection{Vectorization}
 
 \begin{table}[htbp]
     \begin{center}
-    \caption{Total time of the vectorized code for test cases of different sizes}\label{tab:vectorized}
+    \caption{Total time after vectorization}\label{tab:vectorized}
     \begin{tabular}{l | l} 
         \hline\hline
         Test Case Size&Time (s)\\

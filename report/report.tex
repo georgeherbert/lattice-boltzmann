@@ -35,7 +35,7 @@ gcc -std=c99 -Wall -O3 d2q9-bgk.c -lm -o d2q9-bgk.
 
 \begin{table}[htbp]
     \begin{center}
-    \caption{Total times of the original code}\label{tab:original}
+    \caption{Execution times of the original code}\label{tab:original}
     \begin{tabular}{l | l} 
         \hline\hline
         Test Case Size&Time (s)\\
@@ -62,10 +62,10 @@ I took an average of multiple runs because of the variation between runs, which 
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Total times after compiler changes}\label{tab:compiler_changes}
-  \begin{tabular}{l | l} 
+  \caption{Execution times after compiler changes and speedup over the original code}\label{tab:compiler_changes}
+  \begin{tabular}{l | l l} 
       \hline\hline
-      Test Case Size&Time (s)\\
+      Grid Size&Time (s)&Speedup\\
       \hline
       $128 \times 128$&\texttt{ 19.10}\\
       $128 \times 256$&\texttt{ 38.49}\\
@@ -83,10 +83,10 @@ Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressi
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Total times after loop fusion and pointer swap}\label{tab:loop_fusion_pointer_swap}
-  \begin{tabular}{l | l} 
+  \caption{Execution times after loop fusion and pointer swap, and speedup over the original code}\label{tab:loop_fusion_pointer_swap}
+  \begin{tabular}{l | l l} 
       \hline\hline
-      Test Case Size&Time (s)\\
+      Test Case Size&Time (s)&Speedup\\
       \hline
       $128 \times 128$&\texttt{ 19.10}\\
       $128 \times 256$&\texttt{ 38.49}\\
@@ -112,10 +112,10 @@ Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Total times after arithmetic improvements}\label{tab:arithmetic_improvements}
-  \begin{tabular}{l | l} 
+  \caption{Execution times after arithmetic improvements and speedup over the original code}\label{tab:arithmetic_improvements}
+  \begin{tabular}{l | l l} 
       \hline\hline
-      Test Case Size&Time (s)\\
+      Test Case Size&Time (s)&Speedup\\
       \hline
       $128 \times 128$&\texttt{ 19.10}\\
       $128 \times 256$&\texttt{ 38.49}\\
@@ -143,10 +143,10 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
 
 \begin{table}[htbp]
     \begin{center}
-    \caption{Total time after vectorization}\label{tab:vectorized}
-    \begin{tabular}{l | l} 
+    \caption{Execution times after vectorization and speedup over the original code}\label{tab:vectorized}
+    \begin{tabular}{l | l l} 
         \hline\hline
-        Test Case Size&Time (s)\\
+        Test Case Size&Time (s)&Speedup\\
         \hline
         $128 \times 128$&\texttt{  \,\,\,5.79}\\
         $128 \times 256$&\texttt{ 11.66}\\
@@ -164,19 +164,21 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
 \subsection{Results}
 
 \begin{table}[htbp]
-    \begin{center}
-    \caption{Total time of the parallelised code for test cases of different sizes}\label{tab:parallelised}
-    \begin{tabular}{l | l} 
-        \hline\hline
-        Test Case Size&Time (s)\\
-        \hline
-        $128 \times 128$&\texttt{ 0.79}\\
-        $128 \times 256$&\texttt{ 0.91}\\
-        $256 \times 256$&\texttt{ 2.85}\\
-        $1024 \times 1024$&\texttt{13.43}\\
-        \hline
-      \end{tabular}
-    \end{center}
+  \begin{center}
+  \caption{Execution times after parallelising and speedup over both the original and vectorized code}\label{tab:parallelised}
+  \begin{tabular}{l | l  l  l} 
+      \hline\hline
+      &&\multicolumn{2}{c}{Speedup}\\
+      \cline{3-4}
+      Grid Size&Time (s)&Original&Vectorized\\
+      \hline
+      $128 \times 128$&\texttt{ 0.79}\\
+      $128 \times 256$&\texttt{ 0.91}\\
+      $256 \times 256$&\texttt{ 2.85}\\
+      $1024 \times 1024$&\texttt{13.43}\\
+      \hline
+    \end{tabular}
+  \end{center}
 \end{table} 
 
 \clearpage

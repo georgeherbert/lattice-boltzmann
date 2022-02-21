@@ -75,7 +75,19 @@ The original code had a significant quantity of value copying between the \textt
 I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
 I eliminated the \texttt{tmp\_cells} array entirely.
 
-I also improved the arithmetic within each timestep to improve the performance.
+Despite the compiler being able to optimise the arithmetic within each timestep without making any changes to the code, there were still some manual improvements that I made to improve the performance of the program.
+Division is a very slow arithmetic operation relative to addition and multiplication.
+Therefore, I precalculated several values including:
+\[
+    \frac{1}{c^2} = 3\qquad
+    \frac{1}{2c^2} = 1.5\qquad
+    \frac{1}{2c^4} = 4.5
+\]
+where $c$ is the speed of sound.
+Additionally, I noticed that the number of cells in the grid that were not obstacles \texttt{tot\_u} was recalculated and then divided by each timestep.
+I eliminated this inefficiency by counting number of cells that were not obstacles only once (during the initialisation phase).
+I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
+
 
 \subsection{Results}
 

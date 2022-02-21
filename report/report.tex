@@ -71,7 +71,7 @@ It is important to note that I measured every execution time in this report in a
       $128 \times 128$&\texttt{ 22.25}&\texttt{1.31}\\
       $128 \times 256$&\texttt{ 44.42}&\texttt{1.32}\\
       $256 \times 256$&\texttt{176.69}&\texttt{1.33}\\
-      $1024 \times 1024$&\texttt{621.52}\\
+      $1024 \times 1024$&\texttt{795.41}&\texttt{1.23}\\
       \hline
     \end{tabular}
   \end{center}
@@ -89,10 +89,10 @@ Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressi
       \hline\hline
       Test Case Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 19.42}&\texttt{1.50}\\
+      $128 \times 256$&\texttt{ 39.21}&\texttt{1.50}\\
+      $256 \times 256$&\texttt{155.64}&\texttt{1.50}\\
+      $1024 \times 1024$&\texttt{635.61}&\texttt{1.54}\\
       \hline
     \end{tabular}
   \end{center}
@@ -118,10 +118,10 @@ Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
       \hline\hline
       Test Case Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 19.10}&\texttt{}\\
-      $128 \times 256$&\texttt{ 38.49}&\texttt{}\\
-      $256 \times 256$&\texttt{153.39}&\texttt{}\\
-      $1024 \times 1024$&\texttt{621.52}&\texttt{}\\
+      $128 \times 128$&\texttt{ 19.10}&\texttt{1.53}\\
+      $128 \times 256$&\texttt{ 38.49}&\texttt{1.53}\\
+      $256 \times 256$&\texttt{153.39}&\texttt{1.52}\\
+      $1024 \times 1024$&\texttt{621.52}&\texttt{1.58}\\
       \hline
     \end{tabular}
   \end{center}
@@ -142,6 +142,8 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
 
 \subsection{Vectorization}
 
+Vectorization is the process of converting a scalar implementation to a vector implementation, which enables the compiler to make use of additional registers to perform multiple operations in a single instruction \cite{vectorization}.
+
 \begin{table}[htbp]
     \begin{center}
     \caption{Execution times after vectorization, and speedup over the original code}\label{tab:vectorized}
@@ -149,16 +151,16 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
         \hline\hline
         Test Case Size&Time (s)&Speedup\\
         \hline
-        $128 \times 128$&\texttt{  \,\,\,5.79}&\texttt{}\\
-        $128 \times 256$&\texttt{ 11.66}&\texttt{}\\
-        $256 \times 256$&\texttt{ 40.81}&\texttt{}\\
-        $1024 \times 1024$&\texttt{213.53}&\texttt{}\\
+        $128 \times 128$&\texttt{  \,\,\,5.79}&\texttt{5.04}\\
+        $128 \times 256$&\texttt{ 11.66}&\texttt{5.04}\\
+        $256 \times 256$&\texttt{ 40.81}&\texttt{5.72}\\
+        $1024 \times 1024$&\texttt{213.53}&\texttt{4.59}\\
         \hline
       \end{tabular}
     \end{center}
-\end{table} 
+\end{table}
 
-\section{Parallelised}
+\section{Parallelism}
 
 \subsection{OpenMP}
 
@@ -171,10 +173,10 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.79}&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{ 0.91}&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{ 2.85}&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{13.43}&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 0.79}&\texttt{36.91}&\texttt{ 7.33}\\
+      $128 \times 256$&\texttt{ 0.91}&\texttt{64.52}&\texttt{12.82}\\
+      $256 \times 256$&\texttt{ 2.85}&\texttt{81.87}&\texttt{14.32}\\
+      $1024 \times 1024$&\texttt{13.43}&\texttt{73.04}&\texttt{15.90}\\
       \hline
     \end{tabular}
   \end{center}

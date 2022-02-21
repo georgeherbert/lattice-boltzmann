@@ -73,11 +73,11 @@ By fusing the four loops in these procedures into one, I was able to drastically
 Implementing loop fusion offered another significant opportunity to eliminate redundant memory accesses.
 The original code had a significant quantity of value copying between the \texttt{cells} and \texttt{tmp\_cells} arrays.
 I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
-I eliminated the \texttt{tmp\_cells} array entirely.
+Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
 
 Despite the compiler being able to optimise the arithmetic within each timestep without making any changes to the code, there were still some manual improvements that I made to improve the performance of the program.
-Division is a very slow arithmetic operation relative to addition and multiplication.
-Therefore, I precalculated several values including:
+Division is a very slow arithmetic operation relative to multiplication.
+Therefore, to eliminate a large number of unnecessary division operations I precalculated several values including:
 \[
     \frac{1}{c^2} = 3\qquad
     \frac{1}{2c^2} = 1.5\qquad

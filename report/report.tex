@@ -55,6 +55,7 @@ I measured each of the total times by taking an average of 10 runs on BlueCrysta
 Each of BC4's compute nodes is a Lenovo nx360 M5, which contains two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
 I took an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes.
 % Not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
+It is important to note that I measured every execution time in this report in an identical manner to ensure my results were fair and unskewed.
 
 \section{Serial Optimisations}
 
@@ -67,9 +68,9 @@ I took an average of multiple runs because of the variation between runs, which 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 19.10}\\
-      $128 \times 256$&\texttt{ 38.49}\\
-      $256 \times 256$&\texttt{153.39}\\
+      $128 \times 128$&\texttt{ 22.25}&\texttt{1.31}\\
+      $128 \times 256$&\texttt{ 44.42}&\texttt{1.32}\\
+      $256 \times 256$&\texttt{176.69}&\texttt{1.33}\\
       $1024 \times 1024$&\texttt{621.52}\\
       \hline
     \end{tabular}
@@ -88,10 +89,10 @@ Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressi
       \hline\hline
       Test Case Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 19.10}\\
-      $128 \times 256$&\texttt{ 38.49}\\
-      $256 \times 256$&\texttt{153.39}\\
-      $1024 \times 1024$&\texttt{621.52}\\
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
@@ -117,10 +118,10 @@ Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
       \hline\hline
       Test Case Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 19.10}\\
-      $128 \times 256$&\texttt{ 38.49}\\
-      $256 \times 256$&\texttt{153.39}\\
-      $1024 \times 1024$&\texttt{621.52}\\
+      $128 \times 128$&\texttt{ 19.10}&\texttt{}\\
+      $128 \times 256$&\texttt{ 38.49}&\texttt{}\\
+      $256 \times 256$&\texttt{153.39}&\texttt{}\\
+      $1024 \times 1024$&\texttt{621.52}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
@@ -148,10 +149,10 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
         \hline\hline
         Test Case Size&Time (s)&Speedup\\
         \hline
-        $128 \times 128$&\texttt{  \,\,\,5.79}\\
-        $128 \times 256$&\texttt{ 11.66}\\
-        $256 \times 256$&\texttt{ 40.81}\\
-        $1024 \times 1024$&\texttt{213.53}\\
+        $128 \times 128$&\texttt{  \,\,\,5.79}&\texttt{}\\
+        $128 \times 256$&\texttt{ 11.66}&\texttt{}\\
+        $256 \times 256$&\texttt{ 40.81}&\texttt{}\\
+        $1024 \times 1024$&\texttt{213.53}&\texttt{}\\
         \hline
       \end{tabular}
     \end{center}
@@ -160,8 +161,6 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
 \section{Parallelised}
 
 \subsection{OpenMP}
-
-\subsection{Results}
 
 \begin{table}[htbp]
   \begin{center}
@@ -172,14 +171,16 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.79}\\
-      $128 \times 256$&\texttt{ 0.91}\\
-      $256 \times 256$&\texttt{ 2.85}\\
-      $1024 \times 1024$&\texttt{13.43}\\
+      $128 \times 128$&\texttt{ 0.79}&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{ 0.91}&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{ 2.85}&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{13.43}&\texttt{}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
-\end{table} 
+\end{table}
+
+\subsection{Scaling}
 
 \clearpage
 

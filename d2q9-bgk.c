@@ -227,47 +227,6 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
   const float w2 = 1.f / 36.f; /* weighting factor */
   float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
-  __assume(params.ny % 2 == 0);
-  __assume(params.ny % 4 == 0);
-  __assume(params.nx % 8 == 0);
-  __assume(params.ny % 16 == 0);
-  __assume(params.ny % 32 == 0);
-  __assume(params.ny % 64 == 0);
-  __assume(params.ny % 128 == 0);
-  __assume(params.ny % 256 == 0);
-  __assume(params.ny % 512 == 0);
-  __assume(params.ny % 1024 == 0);
-  __assume(params.nx % 2 == 0);
-  __assume(params.nx % 4 == 0);
-  __assume(params.nx % 8 == 0);
-  __assume(params.nx % 16 == 0);
-  __assume(params.nx % 32 == 0);
-  __assume(params.nx % 64 == 0);
-  __assume(params.nx % 128 == 0);
-  __assume(params.nx % 256 == 0);
-  __assume(params.nx % 512 == 0);
-  __assume(params.nx % 1024 == 0);
-  __assume_aligned(cells, 64);
-  __assume_aligned(cells->speeds_0, 64);
-  __assume_aligned(cells->speeds_1, 64);
-  __assume_aligned(cells->speeds_2, 64);
-  __assume_aligned(cells->speeds_3, 64);
-  __assume_aligned(cells->speeds_4, 64);
-  __assume_aligned(cells->speeds_5, 64);
-  __assume_aligned(cells->speeds_6, 64);
-  __assume_aligned(cells->speeds_7, 64);
-  __assume_aligned(cells->speeds_8, 64);
-  __assume_aligned(cells_new, 64);
-  __assume_aligned(cells_new->speeds_0, 64);
-  __assume_aligned(cells_new->speeds_1, 64);
-  __assume_aligned(cells_new->speeds_2, 64);
-  __assume_aligned(cells_new->speeds_3, 64);
-  __assume_aligned(cells_new->speeds_4, 64);
-  __assume_aligned(cells_new->speeds_5, 64);
-  __assume_aligned(cells_new->speeds_6, 64);
-  __assume_aligned(cells_new->speeds_7, 64);
-  __assume_aligned(cells_new->speeds_8, 64);
-  __assume_aligned(obstacles, 64);
   /* loop over the cells in the grid */
   #pragma omp parallel for reduction(+:tot_u)
   for (int jj = 0; jj < params.ny; jj++) {
@@ -277,10 +236,33 @@ float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict 
     const int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
     #pragma omp simd reduction(+:tot_u)
     for (int ii = 0; ii < params.nx; ii++) {
-    /* determine indices of east and west axis-direction neighbours 
-    ** respecting periodic boundary conditions (wrap around) */
+      /* determine indices of east and west axis-direction neighbours 
+      ** respecting periodic boundary conditions (wrap around) */
       const int x_e = (ii + 1) % params.nx;
       const int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
+
+      __assume(params.nx % 16 == 0);
+      __assume_aligned(cells, 64);
+      __assume_aligned(cells->speeds_0, 64);
+      __assume_aligned(cells->speeds_1, 64);
+      __assume_aligned(cells->speeds_2, 64);
+      __assume_aligned(cells->speeds_3, 64);
+      __assume_aligned(cells->speeds_4, 64);
+      __assume_aligned(cells->speeds_5, 64);
+      __assume_aligned(cells->speeds_6, 64);
+      __assume_aligned(cells->speeds_7, 64);
+      __assume_aligned(cells->speeds_8, 64);
+      __assume_aligned(cells_new, 64);
+      __assume_aligned(cells_new->speeds_0, 64);
+      __assume_aligned(cells_new->speeds_1, 64);
+      __assume_aligned(cells_new->speeds_2, 64);
+      __assume_aligned(cells_new->speeds_3, 64);
+      __assume_aligned(cells_new->speeds_4, 64);
+      __assume_aligned(cells_new->speeds_5, 64);
+      __assume_aligned(cells_new->speeds_6, 64);
+      __assume_aligned(cells_new->speeds_7, 64);
+      __assume_aligned(cells_new->speeds_8, 64);
+      __assume_aligned(obstacles, 64);
 
       /* compute local density total */
       const float local_density = cells->speeds_0[ii + jj * params.nx] + cells->speeds_1[x_w + jj * params.nx] + cells->speeds_2[ii + y_s * params.nx] + cells->speeds_3[x_e + jj * params.nx] + cells->speeds_4[ii + y_n * params.nx] + cells->speeds_5[x_w + y_s * params.nx] + cells->speeds_6[x_e + y_s * params.nx] + cells->speeds_7[x_e + y_n * params.nx] + cells->speeds_8[x_w + y_n * params.nx];
@@ -446,7 +428,6 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
   #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++) {
-    #pragma omp simd
     for (int ii = 0; ii < params->nx; ii++) {
       /* centre */
       (*cells_ptr)->speeds_0[ii + jj*params->nx] = w0;
@@ -466,7 +447,6 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   /* first set all cells in obstacle array to zero */
   #pragma omp parallel for
   for (int jj = 0; jj < params->ny; jj++) {
-    #pragma omp simd
     for (int ii = 0; ii < params->nx; ii++) {
       (*obstacles_ptr)[ii + jj*params->nx] = 0;
     }

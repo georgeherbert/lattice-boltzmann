@@ -5,6 +5,7 @@
 \usepackage{subfig}
 % \usepackage{amsmath}
 % \usepackage{graphicx}
+\usepackage[T1]{fontenc}
 
 
 % \graphicspath{{./images/}}
@@ -102,12 +103,12 @@ LBM is a memory bound problem.
 As a result of this, there was a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
 One method I utilised to accomplish this was loop fusion.
 In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
-By fusing the four loops in these procedures into one, I was able to drastically decrease the number of memory accesses, thereby improving the performance of my program.
+By absorbing these four procedures into the \texttt{timestep} procedure and fusing the four loops, I was able to drastically decrease the number of memory accesses, thereby improving the performance of my program.
 
 Implementing loop fusion offered another significant opportunity to eliminate redundant memory accesses.
 The original code had a significant quantity of value copying between the \texttt{cells} and \texttt{tmp\_cells} arrays.
 I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
-Furthermore, I eliminated the \texttt{tmp\_cells} array entirely.
+I eliminated the \texttt{tmp\_cells} array entirely.
 
 \subsection{Arithmetic Improvements}
 
@@ -143,32 +144,44 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
 \subsection{Vectorization}
 
 Vectorization is the process of converting a scalar implementation to a vector implementation, which enables the compiler to make use of additional registers to perform multiple operations in a single instruction \cite{vectorization}.
+I utilised several techniques to enforce single-instruction-multiple-data (SIMD) vectorization of the inner loop within each timestep.
 
-\begin{table}[htbp]
-    \begin{center}
-    \caption{Execution times after vectorization, and speedup over the original code}\label{tab:vectorized}
-    \begin{tabular}{l | l l} 
-        \hline\hline
-        Test Case Size&Time (s)&Speedup\\
-        \hline
-        $128 \times 128$&\texttt{  \,\,\,5.79}&\texttt{5.04}\\
-        $128 \times 256$&\texttt{ 11.66}&\texttt{5.04}\\
-        $256 \times 256$&\texttt{ 40.81}&\texttt{5.72}\\
-        $1024 \times 1024$&\texttt{213.53}&\texttt{4.59}\\
-        \hline
-      \end{tabular}
-    \end{center}
-\end{table}
+Firstly, I converted the \texttt{t\_speed} structure holding cell speeds from an array of structures (AoS) to a structure of arrays (SoA).
+Previously, the grid was represented with an array of \texttt{t\_speed} structures, whereby each structure contained nine vectors.
+I altered this such that the grid was represented by one \texttt{t\_speed} structure containing nine pointers, each to an array of floats.
+Each array of floats contained the values of one vector for each cell within the grid.
+The SoA format greatly suited vectorization of the inner loop, since it kept memory accesses contiguous when vectorization was performed over structure instances \cite{soa}.
 
-I utilised several techniques to enforce single-instruction-multiple-data (SIMD) vectorization.
-Firstly, I compiled \texttt{d2q9-bgk.c} with the \texttt{xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2), which BC4's compute nodes do \cite{lenovo}.
-
+Having altered the data layout to suit vectorization, I utilised several other techniques to enforce vectorization.
 Within my code, I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
-This pragma indicates to the compiler that SIMD instructions can be used to execute iterations of the loop concurrently.
+This pragma indicated to the compiler that SIMD instructions could be used to execute iterations of the loop concurrently.
 The \texttt{qopenmp-simd} option is enabled by default at optimisation levels of \texttt{O2} or higher to enable OpenMP SIMD compilation \cite{icc}.
 
 Additionally, I used the \texttt{restrict} keyword to assert that the memory referenced by pointers was not aliased and compiled my program with the \texttt{restrict} to enable pointer disambiguation.
 This provided a performanced advantage as it prevented the compiler from performing a runtime test for aliasing.
+
+Processors are designed to efficiently move data located on specific byte boundaries, and the compiler is able to perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
+To align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables, I replaced calls to the \texttt{malloc} and \texttt{free} procedures with the alignment specific replacements: \texttt{\_mm\_malloc} and \texttt{\_mm\_free}, respectively.
+I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\_\_assume(params.nx \% 16 == 0)} to inform the compiler that the dynamically allocated variables were aligned.
+Doing so prevented the compiler from generating conservative code, which would have been detrimental to performance.
+
+Once I had utilised these techniques to enforce efficient vectorization of the inner loop, I compiled \texttt{d2q9-bgk.c} with the \texttt{xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2), as BC4's compute nodes do \cite{lenovo}.
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times after vectorization, and speedup over the original code}\label{tab:vectorized}
+  \begin{tabular}{l | l l} 
+      \hline\hline
+      Test Case Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{  \,\,\,5.79}&\texttt{5.04}\\
+      $128 \times 256$&\texttt{ 11.66}&\texttt{5.04}\\
+      $256 \times 256$&\texttt{ 40.81}&\texttt{5.72}\\
+      $1024 \times 1024$&\texttt{213.53}&\texttt{4.59}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
 
 \section{Parallelism}
 
@@ -183,9 +196,9 @@ This provided a performanced advantage as it prevented the compiler from perform
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.79}&\texttt{36.91}&\texttt{ 7.33}\\
-      $128 \times 256$&\texttt{ 0.91}&\texttt{64.52}&\texttt{12.82}\\
-      $256 \times 256$&\texttt{ 2.85}&\texttt{81.87}&\texttt{14.32}\\
+      $128 \times 128$&\texttt{ 0.70}&\texttt{41.65}&\texttt{ 8.27}\\
+      $128 \times 256$&\texttt{ 0.81}&\texttt{71.48}&\texttt{14.40}\\
+      $256 \times 256$&\texttt{ 2.63}&\texttt{88.71}&\texttt{15.52}\\
       $1024 \times 1024$&\texttt{13.43}&\texttt{73.04}&\texttt{15.90}\\
       \hline
     \end{tabular}

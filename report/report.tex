@@ -77,8 +77,8 @@ It is important to note that I measured every execution time in this report in a
   \end{center}
 \end{table} 
 
-I compiled my serial optimised implementation using the Intel® C Compiler as opposed to GCC, since it provides better optimised code for Intel processors.
-Furthermore, I compiled my code with the \texttt{Ofast} flag, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
+I compiled my serial optimised implementation using the Intel C Compiler as opposed to GCC, since it provides better optimised code for Intel processors.
+Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
 
 \subsection{Loop Fusion and Pointer Swap}
 
@@ -159,6 +159,16 @@ Vectorization is the process of converting a scalar implementation to a vector i
       \end{tabular}
     \end{center}
 \end{table}
+
+I utilised several techniques to enforce single-instruction-multiple-data (SIMD) vectorization.
+Firstly, I compiled \texttt{d2q9-bgk.c} with the \texttt{xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2), which BC4's compute nodes do \cite{lenovo}.
+
+Within my code, I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
+This pragma indicates to the compiler that SIMD instructions can be used to execute iterations of the loop concurrently.
+The \texttt{qopenmp-simd} option is enabled by default at optimisation levels of \texttt{O2} or higher to enable OpenMP SIMD compilation \cite{icc}.
+
+Additionally, I used the \texttt{restrict} keyword to assert that the memory referenced by pointers was not aliased and compiled my program with the \texttt{restrict} to enable pointer disambiguation.
+This provided a performanced advantage as it prevented the compiler from performing a runtime test for aliasing.
 
 \section{Parallelism}
 

@@ -201,10 +201,10 @@ This informed the compiler to create a copy of the \texttt{tot\_u} variable for 
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 1.30}&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{ 1.48}&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{ 3.61}&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{16.93}&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 1.30}&\texttt{22.43}&\texttt{ 4.44}\\
+      $128 \times 256$&\texttt{ 1.48}&\texttt{39.67}&\texttt{ 7.82}\\
+      $256 \times 256$&\texttt{ 3.61}&\texttt{64.63}&\texttt{11.51}\\
+      $1024 \times 1024$&\texttt{16.93}&\texttt{57.94}&\texttt{12.73}\\
       \hline
     \end{tabular}
   \end{center}
@@ -227,10 +227,10 @@ Furthermore, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.71}&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{ 0.82}&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{ 2.64}&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{14.47}&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 0.71}&\texttt{41.07}&\texttt{ 8.13}\\
+      $128 \times 256$&\texttt{ 0.82}&\texttt{71.60}&\texttt{14.11}\\
+      $256 \times 256$&\texttt{ 2.64}&\texttt{88.38}&\texttt{15.73}\\
+      $1024 \times 1024$&\texttt{13.47}&\texttt{72.82}&\texttt{16.00}\\
       \hline
     \end{tabular}
   \end{center}

@@ -1,12 +1,9 @@
-from lib2to3.pytree import convert
-
-
 def get_times_lines():
     small_times_lines = []
     small_2_times_lines = []
     medium_times_lines = []
     big_times_lines = []
-    for thread in range(1, 28):
+    for thread in range(1, 29):
         with open(f"d2q9-bgk_threads/d2q9-bgk_{thread}.out") as file:
             content = file.readlines()
             small_times_lines.append(content[11].strip())
@@ -35,7 +32,7 @@ def main():
     medium_times = convert_to_float(medium_times_lines)
     big_times = convert_to_float(big_times_lines)
     # print_scalings(small_times)
-    # print_scalings(small_2_times)
+    print_scalings(small_2_times)
     # print_scalings(medium_times)
     # print_scalings(big_times)
 

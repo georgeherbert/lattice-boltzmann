@@ -187,6 +187,20 @@ Once I had utilised these techniques to enforce efficient vectorization of the i
 
 \subsection{OpenMP}
 
+OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently \cite{openmp_cornell}.
+I utilised OpenMP's \texttt{\#pragma omp parallel} pragma to direct the compiler to parallelise the outer loop in the \texttt{timestep} procedure.
+Furthermore, I compiled my code with the \texttt{qopenmp} option, which enabled the paralellizer to generate multi-threaded code based on OpenMP directives, as that which I defined.
+Since the \texttt{tot\_u} variable needed to contain the total velocities of each cell, I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions.
+This informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results when the outer loop terminates.
+
+\subsection{Non-Uniform Memory Access (NUMA)}
+
+NUMA is a computer memory design in which memory access time depends on the memory location relative to the processor \cite{numa}.
+Memory is allocated to the closest NUMA region to the thread that first touches the data \cite{numa_bristol}.
+Since BC4's compute nodes contain two sockets, the memory access time for a given thread primarily depends on whether the memory is connected to the socket the thread resides in or not.
+I parallelised the initialisation loops for \texttt{cells} and \texttt{obstacles} to ensure that each thread touched the same data in both the \texttt{initialise} and \texttt{compute} procedures.
+Furthermore, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \texttt{OMP\_PLACES=cores} to prevent threads from moving cores.
+
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times after parallelising (run with 28 threads), and speedup over both the original and vectorized code}\label{tab:parallelised}

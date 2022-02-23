@@ -3,8 +3,7 @@
 \usepackage[style = numeric, sorting = none, urldate = long]{biblatex}
 \usepackage{listings}
 \usepackage{subfig}
-% \usepackage{amsmath}
-% \usepackage{graphicx}
+\usepackage{pgfplots}
 \usepackage[T1]{fontenc}
 
 
@@ -193,6 +192,24 @@ Furthermore, I compiled my code with the \texttt{qopenmp} option, which enabled 
 Since the \texttt{tot\_u} variable needed to contain the total velocities of each cell, I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions.
 This informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results when the outer loop terminates.
 
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times after parallelising (run with 28 threads), and speedup over both the original and vectorized code}\label{tab:parallelised}
+  \begin{tabular}{l | l  l  l} 
+      \hline\hline
+      &&\multicolumn{2}{c}{Speedup}\\
+      \cline{3-4}
+      Grid Size&Time (s)&Original&Vectorized\\
+      \hline
+      $128 \times 128$&\texttt{ 1.30}&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{ 1.48}&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{ 3.61}&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{16.93}&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
 \subsection{Non-Uniform Memory Access (NUMA)}
 
 NUMA is a computer memory design in which memory access time depends on the memory location relative to the processor \cite{numa}.
@@ -203,23 +220,50 @@ Furthermore, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after parallelising (run with 28 threads), and speedup over both the original and vectorized code}\label{tab:parallelised}
+  \caption{Execution times after writing NUMA-aware implementation (run with 28 threads), and speedup over both the original and vectorized code}\label{tab:numa}
   \begin{tabular}{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.70}&\texttt{41.65}&\texttt{ 8.24}\\
-      $128 \times 256$&\texttt{ 0.81}&\texttt{71.48}&\texttt{14.28}\\
-      $256 \times 256$&\texttt{ 2.63}&\texttt{88.71}&\texttt{15.80}\\
-      $1024 \times 1024$&\texttt{13.43}&\texttt{73.04}&\texttt{16.05}\\
+      $128 \times 128$&\texttt{ 0.70}&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{ 0.81}&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{ 2.60}&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{14.01}&\texttt{}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
 \end{table}
 
 \subsection{Scaling}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      xlabel={Number of Threads},
+      ylabel={Time (s)},
+      xmin=0, xmax=100,
+      ymin=0, ymax=120,
+      xtick={0,20,40,60,80,100},
+      ytick={0,20,40,60,80,100,120},
+      legend pos=north west,
+      ymajorgrids=true,
+      grid style=dashed,
+    ]
+    \addlegendentry{$128\times128$}
+    \addplot[color = red, mark = x]coordinates{
+      (0,35.1)(10,27.5)(20,32)(30,37.8)(40,44.6)(60,61.8)(80,83.8)(100,114)
+    };
+    \addlegendentry{$128\times256$}
+    \addplot[color = green, mark = x]coordinates{
+      (0,45.1)(10,57.5)(20,62)(30,37.8)(40,64.6)(60,61.8)(80,83.8)(100,114)
+    };
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Scaling}
+\end{figure}
 
 \clearpage
 

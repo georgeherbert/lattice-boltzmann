@@ -5,9 +5,9 @@
 \usepackage{subfig}
 \usepackage{pgfplots}
 \usepackage[T1]{fontenc}
+\usepackage{graphicx}
 
-
-% \graphicspath{{./images/}}
+\graphicspath{{./images/}}
 \addbibresource{refs.bib}
 
 \author{
@@ -67,7 +67,7 @@ Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggres
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after compiler changes, and speedup over the original code}\label{tab:compiler_changes}
+  \caption{Execution times after compilation changes, and speedup over the original code}\label{tab:compiler_changes}
   \begin{tabular}{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -85,8 +85,19 @@ These changes to the compilation process provided a reasonable performance boost
 
 \subsection{Loop Fusion and Pointer Swap}
 
-For all the test cases provided, the implementation of LBM in \texttt{d2q9-bgk} was a memory bound problem.
-As a result of this, there was a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
+\begin{figure}[htbp]
+\includegraphics[width=\linewidth]{roofline_compiler.png}
+\caption{Screenshot of the Intel Advisor Roofline Analysis for my implementation following compilation changes, run on the $1024\times1024$ test case}\label{fig:roofline_compiler}
+\end{figure}
+
+Once I had improved the compilation process, I used the the Intel Advisor tool to generate a Roofline chart, as shown in Figure \ref{fig:roofline_compiler}.
+From this, I identified several attributes of my program, and several key areas to focus my optimisations.
+Firstly, for larger grid sizes in particular, the LBM implementation in \texttt{d2q9-bgk.c} was a memory bandwidth bound problem.
+As it stood, \texttt{d2q9-bgk.c} achieved an average arithmetic intensity of 0.25 FLOP/Byte and a performance of 3.44 GFLOPS for the $1024 \times 1024$ test case.
+
+From this, I identified a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
+Decreasing the quantity of bytes accessed would simultaneously increase the performance of the implementation, whilst also increasing the arithmetic intensity, which would have the additional benefit of increasing the performance bound for my latter implementations.
+
 One method I utilised to accomplish this was loop fusion.
 In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
 By absorbing these four procedures into the \texttt{timestep} procedure and fusing the four loops, I was able to drastically decrease the number of memory accesses, thereby improving the performance of my program.
@@ -112,7 +123,8 @@ I eliminated the \texttt{tmp\_cells} array entirely.
   \end{center}
 \end{table}
 
-Decreasing the number of memory accesses provided further performance improvements, as shown in Table \ref{tab:loop_fusion_pointer_swap}.
+The overall improvements to performance are shown in Table \ref{tab:loop_fusion_pointer_swap}.
+Furthermore, as a result of these optimisations the arithmetic intensity increased to 0.29 FLOP/Byte, and the performance increased to 3.54 GFLOPs for the $1024 \times 1024$ test case.
 
 \subsection{Arithmetic Improvements}
 
@@ -413,6 +425,11 @@ This is known as a sublinear plateau.
 
 The amount of speedup provided by each subsequent core is inversely proportional to the test case size.
 In other words, larger grid sizes benefit more from a multithreaded implementation than smaller grid sizes.
+
+\begin{figure}[htbp]
+  \includegraphics[width=\linewidth]{roofline_compiler.png}
+  \caption{Screenshot of the Intel Advisor Roofline Analysis for my NUMA-aware implementation, run with 28 threads on the $1024\times1024$ test case}\label{fig:roofline_numa}
+\end{figure}
 
 \clearpage
 

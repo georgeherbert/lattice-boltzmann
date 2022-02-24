@@ -418,18 +418,22 @@ I ran my final, NUMA-aware implementation from one to 28 threads to gain an insi
   \caption{Speedup curves for my NUMA-aware implementation}\label{fig:scaling}
 \end{figure}
 
-I plotted the amount of speedup over the single thread implementation that different quantities of threads provided.
+I plotted the amount of speedup adding subsequent threads provided over a single thread implementation.
 The resulting speedup curves for each test case are displayed in Figure \ref{fig:scaling}.
-For each grid size, my implementation initially scales well, but the performance aquired from each subsequent core begins to decline.
-This is known as a sublinear plateau.
+In general, for each grid size, my implementation initially scaled well, but the speedup acquired from each subsequent thread begins to decline---this is known as a sublinear plateau.
+There are some exceptions to this trend.
+Most evidently, there is a large jump in speedup for the $128\times256$ test case at 27 cores.
+Whilst this could be due to noise, it is also potentially due to the grid being split sufficiently small to fit on the L1 or L2 cache of each core.
 
-The amount of speedup provided by each subsequent core is inversely proportional to the test case size.
+Importantly, the amount of speedup provided by each subsequent core is inversely proportional to the test case size.
 In other words, larger grid sizes benefit more from a multithreaded implementation than smaller grid sizes.
 
 \begin{figure}[htbp]
-  \includegraphics[width=\linewidth]{roofline_compiler.png}
+  \includegraphics[width=\linewidth]{roofline_numa.png}
   \caption{Screenshot of the Intel Advisor Roofline Analysis for my NUMA-aware implementation, run with 28 threads on the $1024\times1024$ test case}\label{fig:roofline_numa}
 \end{figure}
+
+Figure \ref{fig:roofline_numa} displays the Roofline chart of my final implementation.
 
 \clearpage
 

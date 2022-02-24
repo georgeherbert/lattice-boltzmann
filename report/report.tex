@@ -49,7 +49,7 @@ gcc -std=c99 -Wall -O3 d2q9-bgk.c -lm -o d2q9-bgk.
     \end{center}
 \end{table} 
 
-Figure \ref{tab:original} contains the total time to initialise, compute and collate each of the test cases when running the ELF file produced.
+Table \ref{tab:original} contains the total time to initialise, compute and collate each of the test cases when running the ELF file produced.
 It was important to measure the original code, so that I could quantify the performance improvements of my latter implementations.
 I measured each of the total times by taking an average of 10 runs on BlueCrystal Phase 4's (BC4's) compute nodes.
 Each of BC4's compute nodes was a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
@@ -81,7 +81,7 @@ Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggres
   \end{center}
 \end{table}
 
-These changes to the compiler provided a reasonable performance boost, as shown in Figure \ref{tab:compiler_changes}.
+These changes to the compiler provided a reasonable performance boost, as shown in Table \ref{tab:compiler_changes}.
 
 \subsection{Loop Fusion and Pointer Swap}
 
@@ -112,7 +112,7 @@ I eliminated the \texttt{tmp\_cells} array entirely.
   \end{center}
 \end{table}
 
-Decreasing the number of memory accesses provided further performance improvements, as shown in Figure \ref{tab:loop_fusion_pointer_swap}.
+Decreasing the number of memory accesses provided further performance improvements, as shown in Table \ref{tab:loop_fusion_pointer_swap}.
 
 \subsection{Arithmetic Improvements}
 
@@ -145,7 +145,7 @@ I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obsta
   \end{center}
 \end{table}
 
-These small arithmetic improvements provided a small boost to performance, as shown in Figure \ref{tab:arithmetic_improvements}.
+These arithmetic improvements provided only a small boost to performance compared to the prior implementation, as shown in Table \ref{tab:arithmetic_improvements}.
 This was to be expected since the Intel C Compiler had already optimised a large amount of the arithmetic.
 
 \subsection{Vectorization}
@@ -190,7 +190,7 @@ Once I had utilised these techniques to enforce efficient vectorization of the i
   \end{center}
 \end{table}
 
-Vectorization provided the largest performance improvement of any optimisation that I had implemented to this point, as shown in Figure \ref{tab:vectorized}.
+Vectorization provided the largest performance improvement of any optimisation that I had implemented to this point, as shown in Table \ref{tab:vectorized}.
 
 \section{Parallelism}
 

@@ -81,7 +81,7 @@ Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggres
   \end{center}
 \end{table}
 
-These changes to the compiler provided a reasonable performance boost, as shown in Table \ref{tab:compiler_changes}.
+These changes to the compilation process provided a reasonable performance boost, as shown in Table \ref{tab:compiler_changes}.
 
 \subsection{Loop Fusion and Pointer Swap}
 
@@ -154,8 +154,8 @@ Vectorization is the process of converting a scalar implementation to a vector i
 I utilised several techniques to enforce single-instruction-multiple-data (SIMD) vectorization of the inner loop within each timestep.
 
 Firstly, I converted the \texttt{t\_speed} structure holding cell speeds from an array of structures (AoS) to a structure of arrays (SoA).
-Previously, the grid was represented with an array of \texttt{t\_speed} structures, whereby each structure contained nine vectors.
-I altered this such that the grid was represented by one \texttt{t\_speed} structure containing nine pointers, each to an array of floats.
+Previously, the grid was represented with an array of \texttt{t\_speed} structures, whereby each structure contained nine vectors (represented by an array of nine floats).
+I altered this such that the grid was represented by one \texttt{t\_speed} structure containing nine pointers, each to an individual array of floats.
 Each array of floats contained the values of one vector for each cell within the grid.
 The SoA format greatly suited vectorization of the inner loop, since it kept memory accesses contiguous when vectorization was performed over structure instances \cite{soa}.
 
@@ -163,9 +163,12 @@ Having altered the data layout to suit vectorization, I utilised several other t
 Within my code, I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
 This pragma indicated to the compiler that SIMD instructions could be used to execute iterations of the loop concurrently.
 The \texttt{qopenmp-simd} option is enabled by default at optimisation levels of \texttt{O2} or higher to enable OpenMP SIMD compilation \cite{icc}.
+Furthermore, I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
 
-Additionally, I used the \texttt{restrict} keyword to assert that the memory referenced by pointers was not aliased and compiled my program with the \texttt{restrict} to enable pointer disambiguation.
-This provided a performanced advantage as it prevented the compiler from performing a runtime test for aliasing.
+I used the \texttt{restrict} keyword in \texttt{timestep}'s parameters for the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables.
+This asserted that the memory referenced by pointers to these variables was not aliased.
+I compiled my program with the \texttt{restrict} option to enable pointer disambiguation for these variables.
+Overall, this provided a performanced advantage as it prevented the compiler from performing a runtime test for aliasing.
 
 Processors are designed to efficiently move data located on specific byte boundaries, and the compiler is able to perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
 To align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables, I replaced calls to the \texttt{malloc} and \texttt{free} procedures with the alignment specific replacements: \texttt{\_mm\_malloc} and \texttt{\_mm\_free}, respectively.
@@ -191,13 +194,17 @@ Once I had utilised these techniques to enforce efficient vectorization of the i
 \end{table}
 
 Vectorization provided the largest performance improvement of any optimisation that I had implemented to this point, as shown in Table \ref{tab:vectorized}.
+This made sense in theory, since AVX2 could perform simultaneous operations on up to eight single precision floating point numbers, thereby vastly decreasing the quantity of time spent in the vectorized inner loop.
 
 \section{Parallelism}
+
+Overall, my serial optimisations (including vectorization) achieved approximately a five times speedup over the original implementation.
+However, there was a large potential for performance improvements by parallelising \texttt{d2q9-bgk.c}. 
 
 \subsection{OpenMP}
 
 OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently \cite{openmp_cornell}.
-I utilised OpenMP's \texttt{\#pragma omp parallel} pragma to direct the compiler to parallelise the outer loop in the \texttt{timestep} procedure.
+I utilised OpenMP's \texttt{\#pragma omp parallel for} pragma to direct the compiler to parallelise the outer loop in the \texttt{timestep} procedure.
 Furthermore, I compiled my code with the \texttt{qopenmp} option, which enabled the paralellizer to generate multi-threaded code based on OpenMP directives, as that which I defined.
 Since the \texttt{tot\_u} variable needed to contain the total velocities of each cell, I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions.
 This informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results when the outer loop terminates.
@@ -219,6 +226,8 @@ This informed the compiler to create a copy of the \texttt{tot\_u} variable for 
     \end{tabular}
   \end{center}
 \end{table}
+
+Table \ref{tab:parallelised} displays the execution times for my parallel implementation (run with 28 threads), and speedup over both the original and vectorized code.
 
 \subsection{Non-Uniform Memory Access (NUMA)}
 
@@ -246,14 +255,19 @@ Furthermore, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \
   \end{center}
 \end{table}
 
+Table \ref{tab:numa} contains the updated execution times for my final NUMA-aware implementation.
+As anticipated, parallelising the initialisation loops and preventing threads from moving cores provided a modest boost to performance.
+
 \subsection{Scaling}
+
+I ran my final, NUMA-aware implementation from one to 28 threads to gain an insight into how my implementation scaled.
 
 \begin{figure}[htpb]
   \centering
   \begin{tikzpicture}
     \begin{axis}[
       xlabel={Number of Threads},
-      ylabel={Time (s)},
+      ylabel={Speedup},
       xmin = 1, xmax = 28,
       ymin = 1,
       % xtick={0, 5, 10, 15, 20, 25},
@@ -389,8 +403,13 @@ Furthermore, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \
     };
     \end{axis}
   \end{tikzpicture}
-  \caption{Speedup curves for NUMA-aware implementation}
+  \caption{Speedup curves for my NUMA-aware implementation}\label{fig:scaling}
 \end{figure}
+
+I plotted the amount of speedup over the single thread implementation that different quantities of threads provided.
+The resulting speedup curves for each test case are displayed in Figure \ref{fig:scaling}.
+For each grid size, my implementation initially scales well, but the performance aquired from each subsequent core begins to decline.
+This is known as a sublinear plateau.
 
 \clearpage
 

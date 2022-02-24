@@ -411,6 +411,9 @@ The resulting speedup curves for each test case are displayed in Figure \ref{fig
 For each grid size, my implementation initially scales well, but the performance aquired from each subsequent core begins to decline.
 This is known as a sublinear plateau.
 
+The amount of speedup provided by each subsequent core is inversely proportional to the test case size.
+In other words, larger grid sizes benefit more from a multithreaded implementation than smaller grid sizes.
+
 \clearpage
 
 \onecolumn{

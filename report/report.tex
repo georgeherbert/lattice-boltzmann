@@ -52,14 +52,18 @@ gcc -std=c99 -Wall -O3 d2q9-bgk.c -lm -o d2q9-bgk.
 Figure \ref{tab:original} contains the total time to initialise, compute and collate each of the test cases when running the ELF file produced.
 It was important to measure the original code, so that I could quantify the performance improvements of my latter implementations.
 I measured each of the total times by taking an average of 10 runs on BlueCrystal Phase 4's (BC4's) compute nodes.
-Each of BC4's compute nodes is a Lenovo nx360 M5, which contains two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-I took an average of multiple runs because of the variation between runs, which exists due to the inconsistent performance of compute nodes.
+Each of BC4's compute nodes was a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+I took an average of multiple runs because of the variation between runs, which existed due to the inconsistent performance of compute nodes.
 % Not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
-It is important to note that I measured every execution time in this report in an identical manner to ensure my results were fair and unskewed.
 
 \section{Serial Optimisations}
 
+I initially implemented a collection of serial optimisations to improve the performance of \texttt{d2q9-bgk.c}.
+
 \subsection{Compiler}
+
+The first improvement I implemented was compiling with the Intel C Compiler as opposed to GCC, since it produced better optimised code for Intel processors.
+Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
 
 \begin{table}[htbp]
   \begin{center}
@@ -75,12 +79,22 @@ It is important to note that I measured every execution time in this report in a
       \hline
     \end{tabular}
   \end{center}
-\end{table} 
+\end{table}
 
-I compiled my serial optimised implementation using the Intel C Compiler as opposed to GCC, since it provides better optimised code for Intel processors.
-Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggressive options to improve the speed of my program, including \texttt{O3} optimisations and aggressive floating point optimisations \cite{icc}.
+These changes to the compiler provided a reasonable performance boost, as shown in Figure \ref{tab:compiler_changes}.
 
 \subsection{Loop Fusion and Pointer Swap}
+
+For all the test cases provided, the implementation of LBM in \texttt{d2q9-bgk} was a memory bound problem.
+As a result of this, there was a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
+One method I utilised to accomplish this was loop fusion.
+In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
+By absorbing these four procedures into the \texttt{timestep} procedure and fusing the four loops, I was able to drastically decrease the number of memory accesses, thereby improving the performance of my program.
+
+Implementing loop fusion offered another significant opportunity to eliminate redundant memory accesses.
+The original code had a significant quantity of value copying between the \texttt{cells} and \texttt{tmp\_cells} arrays.
+I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
+I eliminated the \texttt{tmp\_cells} array entirely.
 
 \begin{table}[htbp]
   \begin{center}
@@ -96,20 +110,24 @@ Furthermore, I compiled my code with the \texttt{Ofast} option, which set aggres
       \hline
     \end{tabular}
   \end{center}
-\end{table} 
+\end{table}
 
-LBM is a memory bound problem.
-As a result of this, there was a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
-One method I utilised to accomplish this was loop fusion.
-In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
-By absorbing these four procedures into the \texttt{timestep} procedure and fusing the four loops, I was able to drastically decrease the number of memory accesses, thereby improving the performance of my program.
-
-Implementing loop fusion offered another significant opportunity to eliminate redundant memory accesses.
-The original code had a significant quantity of value copying between the \texttt{cells} and \texttt{tmp\_cells} arrays.
-I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
-I eliminated the \texttt{tmp\_cells} array entirely.
+Decreasing the number of memory accesses provided further performance improvements, as shown in Figure \ref{tab:loop_fusion_pointer_swap}.
 
 \subsection{Arithmetic Improvements}
+
+Despite the compiler being able to partially optimise the arithmetic within each timestep without making any changes to the code, there were still some manual improvements that I made to improve the performance of the program.
+Division is a very slow arithmetic operation relative to multiplication.
+Therefore, to eliminate a large number of unnecessary division operations I precalculated several values including:
+\[
+    \frac{1}{c^2} = 3\qquad
+    \frac{1}{2c^2} = 1.5\qquad
+    \frac{1}{2c^4} = 4.5
+\]
+where $c$ is the speed of sound.
+Additionally, I noticed that the number of cells in the grid that were not obstacles \texttt{tot\_u} was recalculated and then divided by each timestep.
+I eliminated this inefficiency by counting number of cells that were not obstacles only once (during the initialisation phase).
+I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
 
 \begin{table}[htbp]
   \begin{center}
@@ -125,20 +143,10 @@ I eliminated the \texttt{tmp\_cells} array entirely.
       \hline
     \end{tabular}
   \end{center}
-\end{table} 
+\end{table}
 
-Despite the compiler being able to partially optimise the arithmetic within each timestep without making any changes to the code, there were still some manual improvements that I made to improve the performance of the program.
-Division is a very slow arithmetic operation relative to multiplication.
-Therefore, to eliminate a large number of unnecessary division operations I precalculated several values including:
-\[
-    \frac{1}{c^2} = 3\qquad
-    \frac{1}{2c^2} = 1.5\qquad
-    \frac{1}{2c^4} = 4.5
-\]
-where $c$ is the speed of sound.
-Additionally, I noticed that the number of cells in the grid that were not obstacles \texttt{tot\_u} was recalculated and then divided by each timestep.
-I eliminated this inefficiency by counting number of cells that were not obstacles only once (during the initialisation phase).
-I then saved the reciprocol of this value as a parameter \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
+These small arithmetic improvements provided a small boost to performance, as shown in Figure \ref{tab:arithmetic_improvements}.
+This was to be expected since the Intel C Compiler had already optimised a large amount of the arithmetic.
 
 \subsection{Vectorization}
 
@@ -181,6 +189,8 @@ Once I had utilised these techniques to enforce efficient vectorization of the i
     \end{tabular}
   \end{center}
 \end{table}
+
+Vectorization provided the largest performance improvement of any optimisation that I had implemented to this point, as shown in Figure \ref{tab:vectorized}.
 
 \section{Parallelism}
 

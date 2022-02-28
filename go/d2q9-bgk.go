@@ -224,6 +224,48 @@ func calc_reynolds(params t_param, cells t_speed, obstacles []int) float32{
 	return av_velocity(params, cells, obstacles) * float32(params.reynolds_dim) / viscosity;
 }
 
+func write_values(params t_param, cells t_speed, obstacles []int, av_vels []float32) {
+	c_sq := float32(1.0 / 3.0)
+	file_final_state, _ := os.Create("final_state.dat")
+	writer_final_state := bufio.NewWriter(file_final_state)
+
+	for jj := 0; jj < params.ny; jj ++ {
+		for ii := 0; ii < params.nx; ii ++ {
+			var u_x float32
+			var u_y float32
+			var u float32
+			var pressure float32
+			if obstacles[ii + jj * params.nx] == 1 {
+				u_x = 0
+				u_y = 0
+				u = 0
+				pressure = params.density * c_sq
+			} else {
+				local_density := float32(cells.speeds_0[ii + jj * params.nx] + cells.speeds_1[ii + jj * params.nx] + cells.speeds_2[ii + jj * params.nx] + cells.speeds_3[ii + jj * params.nx] + cells.speeds_4[ii + jj * params.nx] + cells.speeds_5[ii + jj * params.nx] + cells.speeds_6[ii + jj * params.nx] + cells.speeds_7[ii + jj * params.nx] + cells.speeds_8[ii + jj * params.nx])
+				u_x = (cells.speeds_1[ii + jj * params.nx] + cells.speeds_5[ii + jj * params.nx] + cells.speeds_8[ii + jj * params.nx] - (cells.speeds_3[ii + jj * params.nx] + cells.speeds_6[ii + jj * params.nx] + cells.speeds_7[ii + jj * params.nx])) / local_density
+				u_y = (cells.speeds_2[ii + jj * params.nx] + cells.speeds_5[ii + jj * params.nx] + cells.speeds_6[ii + jj * params.nx] - (cells.speeds_4[ii + jj * params.nx] + cells.speeds_7[ii + jj * params.nx] + cells.speeds_8[ii + jj * params.nx])) / local_density
+				u = float32(math.Sqrt(float64(u_x * u_x + u_y * u_y)))
+				pressure = local_density * c_sq;
+			}
+			_, _ = writer_final_state.WriteString(fmt.Sprintf("%d %d %.12E %.12E %.12E %.12E %d\n", ii, jj, u_x, u_y, u, pressure, obstacles[ii * params.nx + jj]))
+		}
+	}
+
+	writer_final_state.Flush()
+	file_final_state.Close()
+
+	file_av_vels, _ := os.Create("av_vels.dat")
+	writer_av_vels := bufio.NewWriter(file_av_vels)
+
+	for ii := 0; ii < params.maxIters; ii++ {
+		_, _ = writer_av_vels.WriteString(fmt.Sprintf("%d:\t%.12E\n", ii, av_vels[ii]))
+	}
+
+	writer_av_vels.Flush()
+	file_av_vels.Close()
+
+}
+
 func main() {
 	paramfile := os.Args[1]
 	obstaclefile := os.Args[2]
@@ -254,5 +296,5 @@ func main() {
 	fmt.Print("Elapsed Collate time:\t\t\t", col_toc.Sub(col_tic), "(s)\n")
 	fmt.Print("Elapsed Total time:\t\t\t", tot_toc.Sub(tot_tic), "(s)\n")
 
-	// fmt.Print(cells)
+	write_values(params, cells, obstacles, av_vels)
 }

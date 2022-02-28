@@ -33,7 +33,14 @@ type t_speed struct {
 	speeds_8[] float32
 };
 
-func initialise(paramfile string, obstaclefile string) (t_speed, t_speed, []int, t_param) {
+const c_sq_r = float32(3.0)
+const two_c_sq_r = float32(1.5)
+const two_c_sq_sq_r = float32(4.5)
+const w0_timestep = float32(4.0 / 9.0)
+const w1_timestep = float32(1.0 / 9.0)
+const w2_timestep = float32(1.0 / 36.0)
+
+func initialise(paramfile string, obstaclefile string) (t_speed, t_speed, []bool, t_param) {
 	var params t_param;
 
 	file_params, _ := os.Open(paramfile)
@@ -94,11 +101,11 @@ func initialise(paramfile string, obstaclefile string) (t_speed, t_speed, []int,
 		}
 	}
 
-	obstacles := make([]int, params.nx * params.ny)
+	obstacles := make([]bool, params.nx * params.ny)
 
 	for jj := 0; jj < params.ny; jj++ {
 		for ii := 0; ii < params.nx; ii++ {
-			obstacles[ii + jj * params.nx] = 0;
+			obstacles[ii + jj * params.nx] = false;
 		}
 	}
 
@@ -109,8 +116,7 @@ func initialise(paramfile string, obstaclefile string) (t_speed, t_speed, []int,
 		line_split := strings.Fields(scanner_obstacles.Text())
 		xx, _ := strconv.Atoi(line_split[0])
 		yy, _ := strconv.Atoi(line_split[1])
-		blocked, _ := strconv.Atoi(line_split[2])
-		obstacles[xx + yy * params.nx] = blocked
+		obstacles[xx + yy * params.nx] = true
 		num_obstacles++
 	}
 	params.num_non_obstacles_r = float32(1.0 / float32(params.nx * params.ny - num_obstacles))
@@ -118,14 +124,14 @@ func initialise(paramfile string, obstaclefile string) (t_speed, t_speed, []int,
 	return cells, cells_new, obstacles, params
 }
 
-func accelerate_flow(params t_param, cells *t_speed, obstacles []int) {
+func accelerate_flow(params t_param, cells *t_speed, obstacles []bool) {
 	w1 := params.density * params.accel / 9
 	w2 := params.density * params.accel / 36
 	
 	jj := params.ny - 2
 
 	for ii := 0; ii < params.nx; ii++ {
-		if obstacles[ii + jj*params.nx] == 0 && (cells.speeds_3[ii + jj*params.nx] - w1) > 0 && (cells.speeds_6[ii + jj*params.nx] - w2) > 0 && (cells.speeds_7[ii + jj*params.nx] - w2) > 0 {
+		if !obstacles[ii + jj*params.nx] && (cells.speeds_3[ii + jj*params.nx] - w1) > 0 && (cells.speeds_6[ii + jj*params.nx] - w2) > 0 && (cells.speeds_7[ii + jj*params.nx] - w2) > 0 {
 			cells.speeds_1[ii + jj*params.nx] += w1
 			cells.speeds_5[ii + jj*params.nx] += w2
 			cells.speeds_8[ii + jj*params.nx] += w2
@@ -136,16 +142,10 @@ func accelerate_flow(params t_param, cells *t_speed, obstacles []int) {
 	}
 }
 
-func timestep(params t_param, cells *t_speed, cells_new *t_speed, obstacles []int) float32 {
-	c_sq_r := float32(3.0)
-	two_c_sq_r := float32(1.5)
-	two_c_sq_sq_r := float32(4.5)
-	w0 := float32(4.0 / 9.0)
-	w1 := float32(1.0 / 9.0)
-	w2 := float32(1.0 / 36.0)
+func perform_iteration(params t_param, cells *t_speed, cells_new *t_speed, obstacles []bool, j_start int, j_end int, tot_u_chan chan<- float32) {
 	tot_u := float32(0.0)
-  
-	for jj := 0; jj < params.ny; jj++ {
+
+	for jj := j_start; jj < j_end; jj++ {
 		y_n := (jj + 1) % params.ny
 		var y_s int
 		if jj == 0 {
@@ -161,8 +161,7 @@ func timestep(params t_param, cells *t_speed, cells_new *t_speed, obstacles []in
 			} else {
 				x_w = ii - 1
 			}
-	
-			if obstacles[ii + jj * params.nx] == 1 {
+			if obstacles[ii + jj * params.nx] {
 				cells_new.speeds_0[ii + jj * params.nx] = cells.speeds_0[ii + jj * params.nx]
 				cells_new.speeds_1[ii + jj * params.nx] = cells.speeds_3[x_e + jj * params.nx] 
 				cells_new.speeds_2[ii + jj * params.nx] = cells.speeds_4[ii + y_n * params.nx] 
@@ -177,20 +176,37 @@ func timestep(params t_param, cells *t_speed, cells_new *t_speed, obstacles []in
 				u_x := (cells.speeds_1[x_w + jj * params.nx] + cells.speeds_5[x_w + y_s * params.nx] + cells.speeds_8[x_w + y_n * params.nx] - (cells.speeds_3[x_e + jj * params.nx] + cells.speeds_6[x_e + y_s * params.nx] + cells.speeds_7[x_e + y_n * params.nx])) / local_density;
 				u_y := (cells.speeds_2[ii + y_s * params.nx] + cells.speeds_5[x_w + y_s * params.nx] + cells.speeds_6[x_e + y_s * params.nx] - (cells.speeds_4[ii + y_n * params.nx] + cells.speeds_7[x_e + y_n * params.nx] + cells.speeds_8[x_w + y_n * params.nx])) / local_density;
 				u_sq := u_x * u_x + u_y * u_y;
-				cells_new.speeds_0[ii + jj * params.nx] = cells.speeds_0[ii + jj * params.nx] + params.omega * (w0 * local_density * (1 - u_sq * two_c_sq_r) - cells.speeds_0[ii + jj * params.nx])
-				cells_new.speeds_1[ii + jj * params.nx] = cells.speeds_1[x_w + jj * params.nx] + params.omega * (w1 * local_density * (1 + u_x * c_sq_r + (u_x * u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_1[x_w + jj * params.nx])
-				cells_new.speeds_2[ii + jj * params.nx] = cells.speeds_2[ii + y_s * params.nx] + params.omega * (w1 * local_density * (1 + u_y * c_sq_r + (u_y * u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_2[ii + y_s * params.nx])
-				cells_new.speeds_3[ii + jj * params.nx] = cells.speeds_3[x_e + jj * params.nx] + params.omega * (w1 * local_density * (1 + -u_x * c_sq_r + (-u_x * -u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_3[x_e + jj * params.nx])
-				cells_new.speeds_4[ii + jj * params.nx] = cells.speeds_4[ii + y_n * params.nx] + params.omega * (w1 * local_density * (1 + -u_y * c_sq_r + (-u_y * -u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_4[ii + y_n * params.nx])
-				cells_new.speeds_5[ii + jj * params.nx] = cells.speeds_5[x_w + y_s * params.nx] + params.omega * (w2 * local_density * (1 + (u_x + u_y) * c_sq_r + ((u_x + u_y) * (u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_5[x_w + y_s * params.nx])
-				cells_new.speeds_6[ii + jj * params.nx] = cells.speeds_6[x_e + y_s * params.nx] + params.omega * (w2 * local_density * (1 + (-u_x + u_y) * c_sq_r + ((-u_x + u_y) * (-u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_6[x_e + y_s * params.nx])
-				cells_new.speeds_7[ii + jj * params.nx] = cells.speeds_7[x_e + y_n * params.nx] + params.omega * (w2 * local_density * (1 + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_7[x_e + y_n * params.nx])
-				cells_new.speeds_8[ii + jj * params.nx] = cells.speeds_8[x_w + y_n * params.nx] + params.omega * (w2 * local_density * (1 + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_8[x_w + y_n * params.nx])
+				cells_new.speeds_0[ii + jj * params.nx] = cells.speeds_0[ii + jj * params.nx] + params.omega * (w0_timestep * local_density * (1 - u_sq * two_c_sq_r) - cells.speeds_0[ii + jj * params.nx])
+				cells_new.speeds_1[ii + jj * params.nx] = cells.speeds_1[x_w + jj * params.nx] + params.omega * (w1_timestep * local_density * (1 + u_x * c_sq_r + (u_x * u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_1[x_w + jj * params.nx])
+				cells_new.speeds_2[ii + jj * params.nx] = cells.speeds_2[ii + y_s * params.nx] + params.omega * (w1_timestep * local_density * (1 + u_y * c_sq_r + (u_y * u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_2[ii + y_s * params.nx])
+				cells_new.speeds_3[ii + jj * params.nx] = cells.speeds_3[x_e + jj * params.nx] + params.omega * (w1_timestep * local_density * (1 + -u_x * c_sq_r + (-u_x * -u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_3[x_e + jj * params.nx])
+				cells_new.speeds_4[ii + jj * params.nx] = cells.speeds_4[ii + y_n * params.nx] + params.omega * (w1_timestep * local_density * (1 + -u_y * c_sq_r + (-u_y * -u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_4[ii + y_n * params.nx])
+				cells_new.speeds_5[ii + jj * params.nx] = cells.speeds_5[x_w + y_s * params.nx] + params.omega * (w2_timestep * local_density * (1 + (u_x + u_y) * c_sq_r + ((u_x + u_y) * (u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_5[x_w + y_s * params.nx])
+				cells_new.speeds_6[ii + jj * params.nx] = cells.speeds_6[x_e + y_s * params.nx] + params.omega * (w2_timestep * local_density * (1 + (-u_x + u_y) * c_sq_r + ((-u_x + u_y) * (-u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_6[x_e + y_s * params.nx])
+				cells_new.speeds_7[ii + jj * params.nx] = cells.speeds_7[x_e + y_n * params.nx] + params.omega * (w2_timestep * local_density * (1 + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_7[x_e + y_n * params.nx])
+				cells_new.speeds_8[ii + jj * params.nx] = cells.speeds_8[x_w + y_n * params.nx] + params.omega * (w2_timestep * local_density * (1 + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells.speeds_8[x_w + y_n * params.nx])
 				tot_u += float32(math.Sqrt(float64(u_sq)))
 			}
-			
-	  	}
+		}
 	}
+	tot_u_chan <- tot_u
+}
+
+func timestep(params t_param, cells *t_speed, cells_new *t_speed, obstacles []bool, num_threads int, rows_per_thread []int) float32 {
+	tot_u_chan := make(chan float32, num_threads)
+
+	cumulative := 0
+	for i := 0; i < num_threads; i++ {
+		go perform_iteration(params, cells, cells_new, obstacles, cumulative, cumulative + rows_per_thread[i], tot_u_chan)
+		cumulative += rows_per_thread[i]
+	}
+
+	tot_u := float32(0.0)
+
+	for i := 0; i < num_threads; i++ {
+		tot_u += <-tot_u_chan
+	}
+	
 	return tot_u * params.num_non_obstacles_r;
 }
 
@@ -200,13 +216,13 @@ func swap(x *t_speed, y *t_speed) {
 	*y = temp
 }
 
-func av_velocity(params t_param, cells t_speed, obstacles []int) float32 {
+func av_velocity(params t_param, cells t_speed, obstacles []bool) float32 {
 	tot_cells := 0
 	tot_u := float32(0.0)
 
 	for jj := 0; jj < params.ny; jj++ {
 		for ii := 0; ii < params.nx; ii++ {
-			if obstacles[ii + jj * params.nx] == 0 {
+			if !obstacles[ii + jj * params.nx] {
 				local_density := float32(cells.speeds_0[ii + jj * params.nx] + cells.speeds_1[ii + jj * params.nx] + cells.speeds_2[ii + jj * params.nx] + cells.speeds_3[ii + jj * params.nx] + cells.speeds_4[ii + jj * params.nx] + cells.speeds_5[ii + jj * params.nx] + cells.speeds_6[ii + jj * params.nx] + cells.speeds_7[ii + jj * params.nx] + cells.speeds_8[ii + jj * params.nx])
 				u_x := (cells.speeds_1[ii + jj * params.nx] + cells.speeds_5[ii + jj * params.nx] + cells.speeds_8[ii + jj * params.nx] - (cells.speeds_3[ii + jj * params.nx] + cells.speeds_6[ii + jj * params.nx] + cells.speeds_7[ii + jj * params.nx])) / local_density
 				u_y := (cells.speeds_2[ii + jj * params.nx] + cells.speeds_5[ii + jj * params.nx] + cells.speeds_6[ii + jj * params.nx] - (cells.speeds_4[ii + jj * params.nx] + cells.speeds_7[ii + jj * params.nx] + cells.speeds_8[ii + jj * params.nx])) / local_density
@@ -219,12 +235,12 @@ func av_velocity(params t_param, cells t_speed, obstacles []int) float32 {
 	return tot_u / float32(tot_cells)
 }
 
-func calc_reynolds(params t_param, cells t_speed, obstacles []int) float32{
+func calc_reynolds(params t_param, cells t_speed, obstacles []bool) float32{
 	viscosity := 1.0 / 6.0 * (2.0 / params.omega - 1.0);
 	return av_velocity(params, cells, obstacles) * float32(params.reynolds_dim) / viscosity;
 }
 
-func write_values(params t_param, cells t_speed, obstacles []int, av_vels []float32) {
+func write_values(params t_param, cells t_speed, obstacles []bool, av_vels []float32) {
 	c_sq := float32(1.0 / 3.0)
 	file_final_state, _ := os.Create("final_state.dat")
 	writer_final_state := bufio.NewWriter(file_final_state)
@@ -235,7 +251,7 @@ func write_values(params t_param, cells t_speed, obstacles []int, av_vels []floa
 			var u_y float32
 			var u float32
 			var pressure float32
-			if obstacles[ii + jj * params.nx] == 1 {
+			if obstacles[ii + jj * params.nx] {
 				u_x = 0
 				u_y = 0
 				u = 0
@@ -247,7 +263,13 @@ func write_values(params t_param, cells t_speed, obstacles []int, av_vels []floa
 				u = float32(math.Sqrt(float64(u_x * u_x + u_y * u_y)))
 				pressure = local_density * c_sq;
 			}
-			_, _ = writer_final_state.WriteString(fmt.Sprintf("%d %d %.12E %.12E %.12E %.12E %d\n", ii, jj, u_x, u_y, u, pressure, obstacles[ii * params.nx + jj]))
+			var i int;
+			if obstacles[ii * params.nx + jj] {
+				i = 1
+			} else {
+				i = 0
+			}
+			_, _ = writer_final_state.WriteString(fmt.Sprintf("%d %d %.12E %.12E %.12E %.12E %d\n", ii, jj, u_x, u_y, u, pressure, i))
 		}
 	}
 
@@ -277,10 +299,20 @@ func main() {
 	init_toc := time.Now()
 	comp_tic := init_toc
 
+	num_threads := 28
+	rows_to_allocate := params.ny
+	rows_per_thread := make([]int, num_threads)
+	i := 0
+	for rows_to_allocate > 0 {
+		rows_per_thread[i] += 1
+		i = (i + 1) % num_threads
+		rows_to_allocate--
+	}
+
 	for tt := 0; tt < params.maxIters; tt++ {
 	// for tt := 0; tt < 2; tt++ {
 		accelerate_flow(params, &cells, obstacles)
-		av_vels[tt] = timestep(params, &cells, &cells_new, obstacles)
+		av_vels[tt] = timestep(params, &cells, &cells_new, obstacles, num_threads, rows_per_thread)
 		swap(&cells, &cells_new)
 	}
 

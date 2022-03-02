@@ -170,7 +170,8 @@ This pragma indicated to the compiler to utilise SIMD instructions to execute op
 Since I was compiling my code with the \texttt{Ofast} optimisation level, the \texttt{qopenmp-simd} option was already enabled to utilise OpenMP SIMD compilation \cite{icc}.
 Furthermore, I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
 
-I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword in \texttt{timestep}'s parameters for the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} pointers. The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
+I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
+The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
 Overall, this reduced the execution time by preventing the compiler from performing a runtime check for aliasing.
 
 Processors efficiently move data located on specific byte boundaries by the nature of their design, and compilers can perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
@@ -444,7 +445,7 @@ Consequently, parallelism can be effortlessly achieved in Go, without requiring 
 As a final, interesting experiment, I produced an implementation of LBM in Go to identify whether a comparable amount of performance could be achieved.
 
 In experiments, the Go implementation was between seven and sixteen times slower.
-Specifically, it achieved a time of 7.66 seconds, 13.10 seconds, 41.83 seconds and 103.02 seconds on the increasingly large test cases, respectively.
+Specifically, it achieved a time of 7.66 seconds, 13.10 seconds, 41.83 seconds and 103.02 seconds on the increasingly large test cases.
 Upon inspection, there were likely several reasons for the comparatively poor performance.
 Firstly, Go's compiler did not perform many optimisations.
 Compiling with GCCGO or GOLLVM may have produced a better optimised executable; however, these required a complicated installation process, which was directly contradictory to the desired simplicity for the experiment.

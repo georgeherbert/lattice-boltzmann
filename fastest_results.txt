@@ -1,30 +1,30 @@
-Running on host compute102.bc4.acrc.priv
-Time is Sat Feb 19 13:55:29 GMT 2022
+Running on host compute106.bc4.acrc.priv
+Time is Wed Mar 2 12:21:38 GMT 2022
 Directory is /user/home/cj19328/lbm
-Slurm job ID is 10051373
+Slurm job ID is 10085807
 This job runs on the following machines:
-compute102
+compute106
 ==done==
-Reynolds number:		9.756026268005E+00
-Elapsed Init time:			0.010225 (s)
-Elapsed Compute time:			0.744663 (s)
+Reynolds number:		9.756007194519E+00
+Elapsed Init time:			0.010501 (s)
+Elapsed Compute time:			0.707485 (s)
 Elapsed Collate time:			0.000000 (s)
-Elapsed Total time:			0.754888 (s)
+Elapsed Total time:			0.717986 (s)
 ==done==
-Reynolds number:		3.716293716431E+01
-Elapsed Init time:			0.006000 (s)
-Elapsed Compute time:			0.951677 (s)
+Reynolds number:		3.716286849976E+01
+Elapsed Init time:			0.004896 (s)
+Elapsed Compute time:			0.774862 (s)
 Elapsed Collate time:			0.000000 (s)
-Elapsed Total time:			0.957677 (s)
+Elapsed Total time:			0.779758 (s)
 ==done==
-Reynolds number:		1.006092643738E+01
-Elapsed Init time:			0.004931 (s)
-Elapsed Compute time:			2.797705 (s)
+Reynolds number:		1.006088066101E+01
+Elapsed Init time:			0.004899 (s)
+Elapsed Compute time:			2.436356 (s)
 Elapsed Collate time:			0.000000 (s)
-Elapsed Total time:			2.802636 (s)
+Elapsed Total time:			2.441255 (s)
 ==done==
-Reynolds number:		3.376235485077E+00
-Elapsed Init time:			0.017073 (s)
-Elapsed Compute time:			10.956567 (s)
+Reynolds number:		3.376187086105E+00
+Elapsed Init time:			0.017050 (s)
+Elapsed Compute time:			9.729362 (s)
 Elapsed Collate time:			0.000000 (s)
-Elapsed Total time:			10.973640 (s)
+Elapsed Total time:			9.746412 (s)

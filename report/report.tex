@@ -1,4 +1,4 @@
-\documentclass[11pt, twocolumn, a4paper]{article}
+\documentclass[twocolumn, a4paper]{article}
 \usepackage[a4paper, left = 2cm, right = 2cm, top = 2cm, bottom = 2cm]{geometry}
 \usepackage[style = numeric, sorting = none, urldate = long]{biblatex}
 \usepackage{subfig}
@@ -440,9 +440,18 @@ Whereas in the NUMA-aware implementation 5777.32 GB and 1447.21 GB of data was p
 There are many other languages, APIs and libraries that can be utilised to implement LBM, each with their own advantages and disadvantages.
 
 Unlike C, Go is a language with concurrency built into its core design.
-As an interesting experiment, I produced an implementation of LBM in Go to compare to the C implementation.
+Consequently, parallelism can be effortlessly achieved in Go, without requiring knowlege of the underlying system, or APIs such as OpenMP.
+As a final, interesting experiment, I produced an implementation of LBM in Go to identify whether a comparable amount of performance could be achieved.
 
+In experiments, the Go implementation was between seven and sixteen times slower.
+Specifically, it achieved a time of 7.66 seconds, 13.10 seconds, 41.83 seconds and 103.02 seconds on the increasingly large test cases, respectively.
+Upon inspection, there were likely several reasons for the comparatively poor performance.
+Firstly, Go's compiler did not perform many optimisations.
+Compiling with GCCGO or GOLLVM may have produced a better optimised executable; however, these required a complicated installation process, which was directly contradictory to the desired simplicity for the experiment.
+Secondly, and perhaps most prominently, was the lack of vectorization.
+Vectorizing code in Go requires the use of external libraries or assembly, which similarly conflicted with the desired simplicity.
 
+In conclusion, a comparable amount of performance could not be achieved using Go's core features.
 
 \clearpage
 

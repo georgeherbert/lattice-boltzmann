@@ -32,9 +32,9 @@ def main():
     medium_times = convert_to_float(medium_times_lines)
     big_times = convert_to_float(big_times_lines)
     # print_scalings(small_times)
-    print_scalings(small_2_times)
+    # print_scalings(small_2_times)
     # print_scalings(medium_times)
-    # print_scalings(big_times)
+    print_scalings(big_times)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@
     \texttt{cj19328@bristol.ac.uk}
 }
 
-\title{\vspace{-2em}Optimising and Parallelising d2q9-bgk.c}
+\title{Optimising and Parallelising d2q9-bgk.c}
 \begin{document}
 
 \maketitle
@@ -101,7 +101,7 @@ The original code contained substantial value copying between the \texttt{cells}
 I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array, and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
 I removed the \texttt{tmp\_cells} array entirely.
 
-Table \ref{tab:loop_fusion_pointer_swap} displays the overall performance improvements.
+Table \ref{tab:loop_fusion_pointer_swap} displays the improvements to the execution time.
 Furthermore, as a result of these optimisations, the arithmetic intensity increased to 0.29 FLOP/byte and the performance increased to 3.54 GFLOPS for the $1024 \times 1024$ test case.
 
 \begin{table}[htbp]
@@ -136,7 +136,7 @@ I eliminated this inefficiency by counting the number of cells that were not obs
 I then saved the reciprocal of this value as a parameter \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
 
 These arithmetic improvements provided only a slight boost to performance compared to the prior implementation, as shown in Table \ref{tab:arithmetic_improvements}.
-However, this was unsurprising since these operations were only a small percentage of the operations in my program.
+This was unsurprising since these operations contributed to only a small fraction of the total operations in my program.
 
 \begin{table}[htbp]
   \begin{center}
@@ -160,14 +160,13 @@ Vectorization is the process of converting a scalar implementation to a vector i
 I utilised several techniques to enforce single-instruction-multiple-data (SIMD) vectorization of the inner loop within each timestep.
 
 Firstly, I converted the \texttt{t\_speed} structure holding cell speeds from an array of structures (AoS) to a structure of arrays (SoA).
-In the SoA format, the \texttt{t\_speed} structure contained nine pointers, each to an individual array of floats, represented the grid.
+In the SoA format, the \texttt{t\_speed} structure contained nine pointers, each to an individual array of floats.
 Each array of floats contained the values of one vector for each cell within the grid.
 The SoA format greatly suited vectorisation of the inner loop since it kept memory accesses contiguous over structure instances \cite{soa}.
 
 Having altered the data layout to suit vectorization, I utilised several other techniques to enforce vectorization.
 I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
 This pragma indicated to the compiler to utilise SIMD instructions to execute operations within the inner loop on multiple data elements in a single instruction.
-Since I was compiling my code with the \texttt{Ofast} optimisation level, the \texttt{qopenmp-simd} option was already enabled to utilise OpenMP SIMD compilation \cite{icc}.
 Furthermore, I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
 
 I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
@@ -180,6 +179,7 @@ I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
 
 Once I had utilised these techniques to enforce efficient vectorization of the inner loop, I compiled \texttt{d2q9-bgk.c} with the \texttt{-xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2) (which BC4's compute nodes do) \cite{lenovo}.
+I did not have to compile with any additional options to enable the compiler to follow OpenMP SIMD directives, since the \texttt{-qopenmp-simd} was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
 
 Vectorization provided the most considerable improvement to speedup of any optimisation that I had implemented to this point, as shown in Table \ref{tab:vectorized}.
 Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byte and performance of 10.14 GFLOPS when run on the $1024\times1024$ test case.
@@ -210,7 +210,7 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
 
 OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently \cite{openmp_cornell}.
 I utilised OpenMP's \texttt{\#pragma omp parallel for} pragma to direct the compiler to parallelise the outer loop in the \texttt{timestep} procedure.
-Furthermore, I compiled my code with the \texttt{qopenmp} option, which enabled the parallelizer to generate multithreaded code based on OpenMP directives.
+Furthermore, I compiled my code with the \texttt{-qopenmp} option, which enabled the parallelizer to generate multithreaded code based on OpenMP directives.
 Since the \texttt{tot\_u} variable needed to contain the total velocities of each cell, I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions; the reduction clause informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results when the outer loop terminated.
 
 Table \ref{tab:parallelised} displays the execution times for my parallel implementation (run with 28 threads), and speedup over both the original and vectorized code.
@@ -283,128 +283,128 @@ Figure \ref{fig:scaling} displays the resultunt speedup curves.
     ]
     \addlegendentry{$128\times128$}
     \addplot[color = orange, mark = x]coordinates{
-      (1, 1)
-      (2, 1.770147781)
-      (3, 2.479203736)
-      (4, 3.090127044)
-      (5, 3.495898299)
-      (6, 3.969781807)
-      (7, 4.449517419)
-      (8, 4.885230537)
-      (9, 5.105636521)
-      (10, 5.495622472)
-      (11, 5.832498588)
-      (12, 6.033959916)
-      (13, 6.511971973)
-      (14, 6.581786272)
-      (15, 7.08579377)
-      (16, 7.224322206)
-      (17, 7.143221767)
-      (18, 7.27187543)
-      (19, 7.559142588)
-      (20, 7.752570216)
-      (21, 7.795101063)
-      (22, 7.970592183)
-      (23, 8.058757757)
-      (24, 8.411400223)
-      (25, 8.309209659)
-      (26, 8.448042356)
-      (27, 8.873950316)
-      (28, 8.729508452)
+      (1, 1.0)
+      (2, 1.7525169788462858)
+      (3, 2.419897249840069)
+      (4, 3.0177321760395954)
+      (5, 3.4340474353625594)
+      (6, 3.8362657949346852)
+      (7, 4.241072726461517)
+      (8, 4.651864978037027)
+      (9, 4.993654422331282)
+      (10,5.2882280154084835)
+      (11,5.520195387872089)
+      (12,5.854579031493787)
+      (13,6.23457059163917)
+      (14,6.342501046595846)
+      (15,6.666023078680611)
+      (16,6.829810732132427)
+      (17,6.6526516481296065)
+      (18,6.746204776109836)
+      (19,7.213003419569139)
+      (20,7.383978810814603)
+      (21,7.383266518002555)
+      (22,7.548589923892521)
+      (23,7.770076587082373)
+      (24,7.86829502746941)
+      (25,7.69660960948019)
+      (26,8.000150678051229)
+      (27,8.274732001825265)
+      (28,8.256913368882064)
     };
     \addlegendentry{$128\times256$}
     \addplot[color = blue, mark = x]coordinates{
       (1, 1)
-      (2, 1.918812078)
-      (3, 2.722691991)
-      (4, 3.620768356)
-      (5, 4.129091999)
-      (6, 4.720896994)
-      (7, 5.457129627)
-      (8, 5.890235496)
-      (9, 6.398711601)
-      (10,6.861778085)
-      (11,7.679664463)
-      (12,7.892142111)
-      (13,8.225546911)
-      (14,9.002082643)
-      (15,9.431524198)
-      (16,10.01307455)
-      (17,9.424918639)
-      (18,9.751774957)
-      (19,10.9890841)
-      (20,10.83510235)
-      (21,11.67306753)
-      (22,11.04704628)
-      (23,11.80091066)
-      (24,11.73689961)
-      (25,12.3300502)
-      (26,12.27839835)
-      (27,14.65659506)
-      (28,14.92261783)
+      (2, 1.87192962)
+      (3, 2.728614279)
+      (4, 3.588436108)
+      (5, 4.211061907)
+      (6, 4.74277418)
+      (7, 5.426597365)
+      (8, 5.901009271)
+      (9, 6.574136151)
+      (10,6.804566205)
+      (11,7.483065988)
+      (12,7.486914766)
+      (13,7.888917429)
+      (14,8.209594871)
+      (15,8.719464845)
+      (16,9.356809194)
+      (17,9.546299879)
+      (18,9.445666983)
+      (19,10.54931431)
+      (20,10.3964243)
+      (21,11.02717878)
+      (22,10.42891424)
+      (23,11.76705845)
+      (24,11.95396706)
+      (25,12.40123763)
+      (26,11.68112555)
+      (27,12.86943567)
+      (28,13.07066895)
     };
     \addlegendentry{$256\times256$}
     \addplot[color = green, mark = x]coordinates{
       (1, 1)
-      (2, 1.938375582)
-      (3, 2.771151595)
-      (4, 3.675722466)
-      (5, 4.299722521)
-      (6, 5.052146164)
-      (7, 5.643422171)
-      (8, 6.316100162)
-      (9, 7.04401679)
-      (10, 7.429468926)
-      (11, 8.075812314)
-      (12, 8.879274603)
-      (13, 9.352559102)
-      (14, 10.00947825)
-      (15, 10.57828753)
-      (16, 11.29099838)
-      (17, 11.34786525)
-      (18, 11.9302309)
-      (19, 12.54826914)
-      (20, 12.94577227)
-      (21, 13.4034522)
-      (22, 13.76922924)
-      (23, 14.16603038)
-      (24, 15.03635571)
-      (25, 15.85516854)
-      (26, 16.38362619)
-      (27, 16.95314186)
-      (28, 17.18947447)
+      (2, 1.945477182)
+      (3, 2.800216561)
+      (4, 3.646333662)
+      (5, 4.198400745)
+      (6, 4.956879242)
+      (7, 5.677667438)
+      (8, 6.245197272)
+      (9, 6.784427958)
+      (10,7.287431021)
+      (11,7.959683682)
+      (12,8.429533225)
+      (13,8.952220823)
+      (14,9.559358953)
+      (15,10.32030432)
+      (16,10.80402701)
+      (17,11.20107215)
+      (18,11.94368597)
+      (19,12.3549946)
+      (20,12.54738718)
+      (21,12.96564369)
+      (22,13.56433482)
+      (23,14.24616986)
+      (24,14.77874954)
+      (25,14.97434191)
+      (26,15.45192009)
+      (27,16.10441691)
+      (28,16.53368092)
 
     };
     \addlegendentry{$1024\times1024$}
     \addplot[color = red, mark = x]coordinates{
       (1, 1)
-      (2, 2.100760194)
-      (3, 2.870122668)
-      (4, 4.071422641)
-      (5, 4.614599066)
-      (6, 5.652837154)
-      (7, 6.291146923)
-      (8, 7.383068123)
-      (9, 7.881869892)
-      (10, 8.977180241)
-      (11, 9.452161408)
-      (12, 10.41116263)
-      (13, 11.06645567)
-      (14, 11.91753689)
-      (15, 12.0840354)
-      (16, 13.08055546)
-      (17, 14.05218119)
-      (18, 14.89108656)
-      (19, 15.38824382)
-      (20, 15.51458921)
-      (21, 15.93993521)
-      (22, 16.75254912)
-      (23, 15.52257546)
-      (24, 16.33948228)
-      (25, 17.84378604)
-      (26, 18.02294074)
-      (27, 17.16198512)
-      (28, 18.21858148)
+      (2, 2.182054561)
+      (3, 2.943754524)
+      (4, 4.131667716)
+      (5, 4.705750019)
+      (6, 5.973656817)
+      (7, 6.351981192)
+      (8, 7.573833461)
+      (9, 7.941396106)
+      (10,8.7813412)
+      (11,9.58468842)
+      (12,10.78916878)
+      (13,11.02458512)
+      (14,12.12324785)
+      (15,11.86351157)
+      (16,12.97218687)
+      (17,13.23885542)
+      (18,13.31481491)
+      (19,14.92644603)
+      (20,13.88484436)
+      (21,13.74639988)
+      (22,15.72695273)
+      (23,14.36825215)
+      (24,13.59839996)
+      (25,14.03417467)
+      (26,15.5747082)
+      (27,15.16956075)
+      (28,16.31876059)
     };
     \end{axis}
   \end{tikzpicture}
@@ -412,12 +412,9 @@ Figure \ref{fig:scaling} displays the resultunt speedup curves.
 \end{figure}
 
 In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent declines---this is known as a sublinear plateau.
-There are some exceptions to this trend.
-Most evidently, there is a significant jump in speedup for the $128\times256$ test case at 27 cores.
-Whilst this could be due to noise, it is also potentially due to the program splitting the grid sufficiently small to fit on each core's L1 or L2 cache.
-
-Notably, the amount of speedup provided by each subsequent core is inversely proportional to the test case size.
+Notably, the amount of speedup provided by each subsequent core is approximately inversely proportional to the test case size.
 In other words, larger grid sizes benefit more from a multithreaded implementation than smaller grid sizes.
+This is because the smaller grids saturate the memory bandwidth sooner.
 
 \subsection{Comparison to Serial Optimised}
 
@@ -442,7 +439,7 @@ There are many other languages, APIs and libraries that can be utilised to imple
 
 Unlike C, Go is a language with concurrency built into its core design.
 Consequently, parallelism can be effortlessly achieved in Go, without requiring knowlege of the underlying system, or APIs such as OpenMP.
-As a final, interesting experiment, I produced an implementation of LBM in Go to identify whether a comparable amount of performance could be achieved.
+As a final, interesting experiment, I produced an implementation of LBM in Go to identify whether a comparable amount of performance could be achieved using Go's easily-understood core features.
 
 In experiments, the Go implementation was between seven and sixteen times slower.
 Specifically, it achieved a time of 7.66 seconds, 13.10 seconds, 41.83 seconds and 103.02 seconds on the increasingly large test cases.
@@ -452,7 +449,7 @@ Compiling with GCCGO or GOLLVM may have produced a better optimised executable; 
 Secondly, and perhaps most prominently, was the lack of vectorization.
 Vectorizing code in Go requires the use of external libraries or assembly, which similarly conflicted with the desired simplicity.
 
-In conclusion, a comparable amount of performance could not be achieved using Go's core features.
+In conclusion, a comparable amount of performance could not be achieved using Go's easily-understood core features.
 
 \clearpage
 

@@ -74,15 +74,15 @@ typedef struct {
 
 /* struct to hold the 'speed' values */
 typedef struct {
-  float* speeds_0;
-  float* speeds_1;
-  float* speeds_2;
-  float* speeds_3;
-  float* speeds_4;
-  float* speeds_5;
-  float* speeds_6;
-  float* speeds_7;
-  float* speeds_8;
+  float* restrict speeds_0;
+  float* restrict speeds_1;
+  float* restrict speeds_2;
+  float* restrict speeds_3;
+  float* restrict speeds_4;
+  float* restrict speeds_5;
+  float* restrict speeds_6;
+  float* restrict speeds_7;
+  float* restrict speeds_8;
 } t_speed;
 
 /*
@@ -218,7 +218,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
   return EXIT_SUCCESS;
 }
 
-float timestep(const t_param params, t_speed* restrict cells, t_speed* restrict cells_new, const int* restrict obstacles) {
+float timestep(const t_param params, t_speed* cells, t_speed* cells_new, const int* obstacles) {
   const float c_sq_r = 3.f;
   const float two_c_sq_r = 1.5f;
   const float two_c_sq_sq_r = 4.5f;

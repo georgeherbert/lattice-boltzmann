@@ -224,10 +224,10 @@ Table \ref{tab:parallelised} displays the execution times for my parallel implem
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 1.14}&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{ 1.35}&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{ 3.33}&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{14.38}&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 1.14}&\texttt{25.58}&\texttt{ 5.06}\\
+      $128 \times 256$&\texttt{ 1.35}&\texttt{43.49}&\texttt{ 8.57}\\
+      $256 \times 256$&\texttt{ 3.33}&\texttt{70.07}&\texttt{12.48}\\
+      $1024 \times 1024$&\texttt{14.38}&\texttt{68.21}&\texttt{14.88}\\
       \hline
     \end{tabular}
   \end{center}
@@ -252,10 +252,10 @@ Table \ref{tab:numa} contains the updated execution times for my final NUMA-awar
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.72}&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{ 0.80}&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{ 2.47}&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{12.19}&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 0.72}&\texttt{40.5}&\texttt{ 8.01}\\
+      $128 \times 256$&\texttt{ 0.80}&\texttt{73.38}&\texttt{14.46}\\
+      $256 \times 256$&\texttt{ 2.47}&\texttt{94.46}&\texttt{16.82}\\
+      $1024 \times 1024$&\texttt{12.81}&\texttt{76.57}&\texttt{16.83}\\
       \hline
     \end{tabular}
   \end{center}
@@ -404,7 +404,7 @@ Figure \ref{fig:scaling} displays the resultunt speedup curves.
       (25,14.03417467)
       (26,15.5747082)
       (27,15.16956075)
-      (28,16.31876059)
+      (28,16.59876059)
     };
     \end{axis}
   \end{tikzpicture}

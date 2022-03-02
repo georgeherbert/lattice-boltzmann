@@ -133,7 +133,7 @@ Therefore, to eliminate a large number of unnecessary division operations, I pre
 where $c$ is the speed of sound.
 Additionally, I noticed that the number of cells in the grid that were not obstacles \texttt{tot\_u} was recalculated and then divided by each timestep.
 I eliminated this inefficiency by counting the number of cells that were not obstacles only once (during the initialisation phase).
-I then saved the reciprocal of this value as a parameter \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
+I then saved the reciprocal of this value in the \texttt{params} variable as \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
 
 These arithmetic improvements provided only a slight boost to performance compared to the prior implementation, as shown in Table \ref{tab:arithmetic_improvements}; this was unsurprising since these operations contributed to only a tiny fraction of the total operations in my program.
 
@@ -178,7 +178,7 @@ I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
 
 Once I had utilised these techniques to enforce efficient vectorization of the inner loop, I compiled \texttt{d2q9-bgk.c} with the \texttt{-xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2) (which BC4's compute nodes do) \cite{lenovo}.
-I did not have to compile with any additional options to enable the compiler to follow OpenMP SIMD directives since the \texttt{-qopenmp-simd} was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
+I did not have to compile with any additional options to enable the compiler to follow OpenMP SIMD directives since the \texttt{-qopenmp-simd} option was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
 
 Vectorization provided the most considerable improvement to speedup of any optimisation that I had implemented to this point, as shown in Table \ref{tab:vectorized}.
 Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byte and performance of 10.14 GFLOPS when run on the $1024\times1024$ test case.
@@ -410,7 +410,7 @@ Figure \ref{fig:scaling} displays the resultant speedup curves.
   \caption{Speedup curves for my NUMA-aware implementation}\label{fig:scaling}
 \end{figure}
 
-In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent declines---this is known as a sublinear plateau.
+In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent thread declines---this is known as a sublinear plateau.
 Notably, the amount of speedup provided by each subsequent core is approximately inversely proportional to the test case size.
 In other words, larger grid sizes benefit more from a multithreaded implementation than smaller grid sizes---this is because the smaller grids saturate the memory bandwidth sooner.
 
@@ -436,7 +436,7 @@ Whereas in the NUMA-aware implementation, 5777.32 GB and 1447.21 GB of data were
 Many other languages, APIs, and libraries can be utilized to implement LBM; all have associated advantages and disadvantages.
 
 Unlike C, Go is a language with concurrency built into its core design.
-Consequently, one can achieve parallelism in Go effortlessly, without requiring significant knowledge of the underlying system or APIs such as OpenMP
+Consequently, one can achieve parallelism in Go effortlessly, without requiring significant knowledge of the underlying system or APIs such as OpenMP.
 As a final, interesting experiment, I produced an implementation of LBM in Go to identify whether Go's easily-understood core features could achieve a comparable amount of performance.
 
 In experiments, the Go implementation was between seven and sixteen times slower.

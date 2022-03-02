@@ -428,13 +428,20 @@ On the $1024\times1024$ test case, an arithmetic intensity of 0.43 FLOP/byte and
   \caption{Screenshot of the Intel Advisor Roofline Analysis for my NUMA-aware implementation, run with 28 threads on the $1024\times1024$ test case}\label{fig:roofline_numa}
 \end{figure}
 
-Compared to my vectorized implementation, the arithmetic intensity is identical, whereas the performance increased by a factor of 16.60.
+Compared to my vectorized implementation, the arithmetic intensity was identical, whereas the performance increased by a factor of 16.60.
+This was primarily due to two reasons.
+Firstly, by running across multiple threads on multiple cores, sections of the grid could be computed in parallel.
+Secondly, inspecting the Intel Advisor memory metrics for the $1024\times1024$ grid size highlighted that the parallel program did not have to interact with the DRAM, which had a lower bandwidth, as often.
+For example, in the \texttt{timestep} loop in the vectorized implementation, 5130.56 GB and 2306.03 GB of data was passed through the L1 cache and DRAM, respectively.
+Whereas in the NUMA-aware implementation 5777.32 GB and 1447.21 GB of data was passed through the L1 cache and DRAM, respectively. 
 
 \section{LBM in Go}
 
 There are many other languages, APIs and libraries that can be utilised to implement LBM, each with their own advantages and disadvantages.
 
-I produced a separate implementation of LBM in Go to compare to the C implementation.
+Unlike C, Go is a language with concurrency built into its core design.
+As an interesting experiment, I produced an implementation of LBM in Go to compare to the C implementation.
+
 
 
 \clearpage

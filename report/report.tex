@@ -56,9 +56,9 @@ I took an average because of the variation between runs, which existed due to th
 
 % I initially implemented a collection of serial optimisations to improve the performance of \texttt{d2q9-bgk.c}.
 
-\subsection{Intel C Compiler Classic (ICC)}
+\subsection{Intel C Compiler Classic}
 
-I hypothesised that compiling with ICC instead of GCC would produce an executable better optimised for BC4's Intel compute nodes.
+I hypothesised that compiling with the Intel C Compiler Classic (ICC) instead of GCC would produce an executable better optimised for BC4's Intel compute nodes.
 Table \ref{tab:icc} contains the execution times after compiling with ICC.
 
 \begin{table}[htbp]
@@ -132,31 +132,30 @@ Moreover, my program's arithmetic intensity increased to 0.29 FLOP/byte, and the
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 19.42}&\texttt{1.50}\\
-      $128 \times 256$&\texttt{ 39.21}&\texttt{1.50}\\
-      $256 \times 256$&\texttt{155.64}&\texttt{1.50}\\
-      $1024 \times 1024$&\texttt{635.61}&\texttt{1.54}\\
+      $128 \times 128$&\texttt{ 19.42}&\texttt{1.15}\\
+      $128 \times 256$&\texttt{ 39.21}&\texttt{1.13}\\
+      $256 \times 256$&\texttt{155.64}&\texttt{1.14}\\
+      $1024 \times 1024$&\texttt{635.61}&\texttt{1.25}\\
       \hline
     \end{tabular}
   \end{center}
 \end{table}
 
-\subsection{Arithmetic Improvements}
+\subsection{Arithmetic}
 
-Despite the compiler being able to partially optimise the arithmetic within each timestep without making any changes to the code, I still made some manual improvements to improve the program's performance.
+Despite the compiler optimising the arithmetic within each timestep, I hypothesised I could make some manual improvements to further reduce my program's execution time.
+
 Division operations take considerably more time to execute than other basic arithmetic operations, such as multiplication.
-Therefore, to eliminate a large number of unnecessary division operations, I precalculated several values, including:
-\[
-    \frac{1}{c^2} = 3\qquad
-    \frac{1}{2c^2} = 1.5\qquad
-    \frac{1}{2c^4} = 4.5
-\]
-where $c$ is the speed of sound.
-Additionally, I noticed that the number of cells in the grid that were not obstacles \texttt{tot\_u} was recalculated and then divided by each timestep.
-I eliminated this inefficiency by counting the number of cells that were not obstacles only once (during the initialisation phase).
-I then saved the reciprocal of this value in the \texttt{params} variable as \texttt{num\_non\_obstacles\_r}, which I used once per timestep in a multiplicative operation to compute the average velocity.
+To eliminate a several unnecessary division operations, I precalculated several values: \texttt{c\_sq\_r}, the reciprocal of $c^2$; \texttt{two\_c\_sq\_r}, the reciprocal of $2c^2$; and \texttt{two\_c\_sq\_sq\_r}, the reciprocal of $2c^4$, where $c$ is the speed of sound.
+I then replaced several division operations with multiplications by these values.
 
-These arithmetic improvements provided only a slight boost to performance compared to the prior implementation, as shown in Table \ref{tab:arithmetic_improvements}; this was unsurprising since these operations contributed to only a tiny fraction of the total operations in my program.
+Additionally, I eliminated the repeated calculation and division of \texttt{tot\_cells} (i.e. the number of cells that were not obstacles) each timestep.
+To do so, my program calculated \texttt{tot\_cells} once during the initialisation phase.
+I then set the reciprocal of this value in the \texttt{params.num\_non\_obstacles\_r} variable, which I multiplied with \texttt{tot\_u} to compute the average velocity each timestep.
+
+These arithmetic improvements provided only a slight speedup compared to the prior implementation, as shown in Table \ref{tab:arithmetic_improvements}.
+This was because the execution time of my program was dominated by memory accesses.
+I would expect a larger speedup in smaller grid sizes than the test cases provided.
 
 \begin{table}[htbp]
   \begin{center}
@@ -165,10 +164,10 @@ These arithmetic improvements provided only a slight boost to performance compar
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 19.10}&\texttt{1.53}\\
-      $128 \times 256$&\texttt{ 38.49}&\texttt{1.53}\\
-      $256 \times 256$&\texttt{153.39}&\texttt{1.52}\\
-      $1024 \times 1024$&\texttt{621.52}&\texttt{1.58}\\
+      $128 \times 128$&\texttt{ 19.10}&\texttt{1.02}\\
+      $128 \times 256$&\texttt{ 38.49}&\texttt{1.02}\\
+      $256 \times 256$&\texttt{153.39}&\texttt{1.01}\\
+      $1024 \times 1024$&\texttt{621.52}&\texttt{1.02}\\
       \hline
     \end{tabular}
   \end{center}
@@ -176,15 +175,16 @@ These arithmetic improvements provided only a slight boost to performance compar
 
 \section{Vectorization}
 
-Vectorization is the process of converting a scalar implementation to a vector implementation, which enables the compiler to use additional registers to perform multiple operations in a single instruction.
-I utilised several techniques to enforce single instruction, multiple data (SIMD) vectorization of the inner loop within each timestep.
+Vectorization is the process of converting a scalar implementation to a vector implementation, which enables the compiler to use additional registers to perform single, multiple data (SIMD) operations.
 
-\subsection{Array of Structures (AoS) to Structure of Arrays (SoA)}
+\subsection{Structure of Arrays}
 
-Firstly, I converted the \texttt{t\_speed} structure holding cell speeds from an AoS to an SoA.
-In the SoA format, the \texttt{t\_speed} structure contained nine pointers, each to an individual array of floats.
+I hypothesised that converting the \texttt{t\_speed} structrue from an array of structures (AoS) to a structure of arrays (SoA) would suit vectorisation of the inner loop; the SoA format would keep memory accesses contiguous over structure instances.
+I altered the \texttt{t\_speed} to contain nine pointers, each to an individual array of floats.
 Each array of floats contained the values of one vector for each cell within the grid.
-The SoA format greatly suited vectorisation of the inner loop since it kept memory accesses contiguous over structure instances.
+
+The SoA format actually increased the execution time of my program, as shown in Table \ref{tab:soa}.
+This is because the AoS format has better memory locality in the program's unvectorized form.
 
 \begin{table}[htbp]
   \begin{center}
@@ -204,14 +204,14 @@ The SoA format greatly suited vectorisation of the inner loop since it kept memo
 
 \subsection{Memory Alignment and Disambiguation}
 
-I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
-The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
-Overall, this reduced the execution time by preventing the compiler from performing a runtime check for aliasing.
-
 Processors efficiently move data located on specific byte boundaries by the nature of their design, and compilers can perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
 To align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables, I replaced calls to the \texttt{malloc} and \texttt{free} procedures with the alignment specific replacements: \texttt{\_mm\_malloc} and \texttt{\_mm\_free}, respectively.
 I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\_\_assume(params.nx \% 16 == 0)} to inform the compiler that the dynamically allocated variables were aligned.
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
+
+I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
+The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
+Overall, this reduced the execution time by preventing the compiler from performing a runtime check for aliasing.
 
 \begin{table}[htbp]
   \begin{center}
@@ -250,10 +250,10 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{  \,\,\,5.77}&\texttt{5.05}\\
-      $128 \times 256$&\texttt{ 11.57}&\texttt{5.07}\\
-      $256 \times 256$&\texttt{ 41.55}&\texttt{5.62}\\
-      $1024 \times 1024$&\texttt{215.52}&\texttt{4.55}\\
+      $128 \times 128$&\texttt{  \,\,\,5.77}&\texttt{}\\
+      $128 \times 256$&\texttt{ 11.57}&\texttt{}\\
+      $256 \times 256$&\texttt{ 41.55}&\texttt{}\\
+      $1024 \times 1024$&\texttt{215.52}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}

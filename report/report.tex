@@ -5,9 +5,13 @@
 \usepackage{pgfplots}
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
+\usepackage[UKenglish]{babel}% http://ctan.org/pkg/babel
+\usepackage[UKenglish]{isodate}% http://ctan.org/pkg/isodate
 
 \graphicspath{{./images/}}
 \addbibresource{refs.bib}
+
+\cleanlookdateon
 
 \renewcommand*{\bibfont}{\footnotesize}
 
@@ -15,6 +19,7 @@
     George Herbert\\
     \texttt{cj19328@bristol.ac.uk}
 }
+
 
 \title{\vspace{-2em}Optimising and Parallelising d2q9-bgk.c}
 \begin{document}
@@ -68,9 +73,9 @@ Table \ref{tab:icc} contains the execution times after compiling with ICC.
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 22.54}&\texttt{}\\
+      $128 \times 256$&\texttt{ 45.56}&\texttt{}\\
+      $256 \times 256$&\texttt{179.06}&\texttt{}\\
       $1024 \times 1024$&\texttt{}&\texttt{}\\
       \hline
     \end{tabular}

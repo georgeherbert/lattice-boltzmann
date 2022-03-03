@@ -105,7 +105,7 @@ I used the Intel Advisor tool to generate a Roofline chart, as shown in Figure \
 
 \begin{figure}[htbp]
 \includegraphics[width=\linewidth]{roofline_compiler.png}
-\caption{Screenshot of the Roofline chart following compilation changes, run on the $1024\times1024$ test case}\label{fig:roofline_compiler}
+\caption{Roofline chart following compilation changes, run on the $1024\times1024$ test case}\label{fig:roofline_compiler}
 \end{figure}
 
 I identified several attributes of my program and several key areas to focus my optimisations.
@@ -118,7 +118,7 @@ Using the Roofline chart, I identified that decreasing the number of accesses to
 
 To accomplish this I implemented loop fusion.
 In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
-I fused the four loops within these procedures into a single loop in the \texttt{timestep} procedure.
+I fused the four loops within these procedures into a single loop in the \texttt{timestep} function.
 This enabled me to eliminate the temporary allocations of cell values to the \texttt{tmp\_cells} array.
 Instead, all new values of cells are written to the \texttt{cells\_new} array, and the pointers of \texttt{cells} and \texttt{cells\_new} are swapped each timestep.
 
@@ -202,46 +202,28 @@ This is because the AoS format has better memory locality in the program's unvec
   \end{center}
 \end{table}
 
-\subsection{Memory Alignment and Disambiguation}
+\subsection{Memory for Vectorization}
 
-Processors efficiently move data located on specific byte boundaries by the nature of their design, and compilers can perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
+To effect vectorization of the inner loop, I identified that I needed to align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables, and hint to the compiler that the arrays in the \texttt{t\_speed} structure were not aliased.
+
+Processors efficiently move data located on specific byte boundaries, and compilers can perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
 To align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables, I replaced calls to the \texttt{malloc} and \texttt{free} procedures with the alignment specific replacements: \texttt{\_mm\_malloc} and \texttt{\_mm\_free}, respectively.
 I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\_\_assume(params.nx \% 16 == 0)} to inform the compiler that the dynamically allocated variables were aligned.
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
 
 I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
 The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
-Overall, this reduced the execution time by preventing the compiler from performing a runtime check for aliasing.
+This prevented the compiler from performing a runtime check for aliasing.
 
-\begin{table}[htbp]
-  \begin{center}
-  \caption{Execution times with memory improvements and speedup over the prior implementation}\label{tab:memory}
-  \begin{tabular}{l | l l} 
-      \hline\hline
-      Grid Size&Time (s)&Speedup\\
-      \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
+I implemented the \texttt{\#pragma omp simd} pragma, indicated to the compiler to utilise SIMD instructions to execute operations within the inner loop.
+I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
 
-\subsection{SIMD Directives}
-
-Having altered the data layout to suit vectorization, I utilised several other techniques to enforce vectorization.
-I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
-This pragma indicated to the compiler to utilise SIMD instructions to execute operations within the inner loop on multiple data elements in a single instruction.
-Furthermore, I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
-
-Once I had utilised these techniques to enforce efficient vectorization of the inner loop, I compiled \texttt{d2q9-bgk.c} with the \texttt{-xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2) (which BC4's compute nodes do) \cite{lenovo}.
+I compiled with the \texttt{-xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2) (which BC4's compute nodes do) \cite{lenovo}.
 I did not have to compile with any additional options to enable the compiler to follow OpenMP SIMD directives since the \texttt{-qopenmp-simd} option was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
 
 Vectorization provided the most considerable improvement to speedup of any optimisation that I had implemented to this point, as shown in Table \ref{tab:vectorized}.
+This is because the compiler could produce AVX2 instructions that could perform simultaneous operations on up to eight single-precision floating-point numbers.
 Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byte and performance of 10.14 GFLOPS when run on the $1024\times1024$ test case.
-% This significant improvement was unsurprising since AVX2 could perform simultaneous operations on up to eight single-precision floating-point numbers.
 
 \begin{table}[htbp]
   \begin{center}
@@ -266,12 +248,15 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
 
 \subsection{OpenMP}
 
-OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently.
-I utilised OpenMP's \texttt{\#pragma omp parallel for} pragma to direct the compiler to parallelise the outer loop in the \texttt{timestep} procedure.
-Furthermore, I compiled my code with the \texttt{-qopenmp} option, which enabled the paralleliser to generate multithreaded code based on OpenMP directives.
-Since the \texttt{tot\_u} variable needed to contain the total velocities of each cell, I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions; the reduction clause informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results when the outer loop terminated.
+Using the Intel Advisor tool, I identified that a large proportion of my program's execution time was in the inner loop in the \texttt{timestep} function.
+Therefore, I hypothesised that parallelising the outer loop would provide a substantial preformance improvement.
 
-Table \ref{tab:parallelised} displays the execution times for my parallel implementation (run with 28 threads), and speedup over both the original and vectorized code.
+OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently.
+To parallelise the outer loop, I included OpenMP's \texttt{\#pragma omp parallel for} pragma, and compiled my code with the \texttt{-qopenmp} option.
+I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions; the reduction clause informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results when the outer loop terminated.
+
+Table \ref{tab:parallelised} displays the execution times for my parallel implementation, when run with 28 threads.
+There is a significant speedup over the vectorized implementation because the program is able to utilise a larger amount of L1 and L2 cache, and execute iterations of the inner loop in parallel.
 
 \begin{table}[htbp]
   \begin{center}
@@ -280,33 +265,35 @@ Table \ref{tab:parallelised} displays the execution times for my parallel implem
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 1.14}&\texttt{5.05}\\
-      $128 \times 256$&\texttt{ 1.35}&\texttt{5.07}\\
-      $256 \times 256$&\texttt{ 3.33}&\texttt{5.62}\\
-      $1024 \times 1024$&\texttt{14.38}&\texttt{4.55}\\
+      $128 \times 128$&\texttt{ 1.14}&\texttt{}\\
+      $128 \times 256$&\texttt{ 1.35}&\texttt{}\\
+      $256 \times 256$&\texttt{ 3.33}&\texttt{}\\
+      $1024 \times 1024$&\texttt{14.38}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
 \end{table}
 
-\subsection{Non-Uniform Memory Access (NUMA)}
+\subsection{Non-Uniform Memory Access}
 
-NUMA is a computer memory design in which memory access time depends on the memory location relative to the processor.
-Memory is allocated to the closest NUMA region to the thread that first touches the data.
-Since BC4's compute nodes contain two sockets, the memory access time for a given thread primarily depends on whether the memory is connected to the socket the thread resides in or not.
-As a result, I parallelised the initialisation loops for \texttt{cells} and \texttt{obstacles} to ensure that each thread touched the same data in both the \texttt{initialise} and \texttt{compute} procedures.
-Furthermore, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \texttt{OMP\_PLACES=cores} to prevent threads from moving cores.
+Non-uniform memory access (NUMA) is a computer memory design in which memory access time depends on the memory location relative to the processor.
+I identified that memory for the \texttt{cells} and \texttt{obstacles} variables were being allocated the first thread in my prior implementation, in accordance with the first touch policy.
+Therefore, I hypothesised that a NUMA-aware implementation would reduce the average memory access time.
+
+I parallelised the initialisation loops for \texttt{cells} and \texttt{obstacles} to ensure that each thread touched the same data in both the \texttt{initialise} and \texttt{timestep} procedures.
+Additionally, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \texttt{OMP\_PLACES=cores} to prevent threads from moving cores.
 
 Table \ref{tab:numa} contains the updated execution times for my final NUMA-aware implementation.
+The NUMA-aware implementation produced a reasonable performance boost, by virtue of speeding up the average time to access a memory location.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with NUMA-aware 28 threads and speedup over the prior implementation}\label{tab:numa}
+  \caption{Execution times with NUMA-aware 28 threads, and speedup over both the prior and vectorized implementation}\label{tab:numa}
   \begin{tabular}{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
       \cline{3-4}
-      Grid Size&Time (s)&Original&Vectorized\\
+      Grid Size&Time (s)&Prior&Vectorized\\
       \hline
       $128 \times 128$&\texttt{ 0.72}&\texttt{}&\texttt{ 8.01}\\
       $128 \times 256$&\texttt{ 0.80}&\texttt{}&\texttt{14.46}\\
@@ -319,8 +306,8 @@ Table \ref{tab:numa} contains the updated execution times for my final NUMA-awar
 
 \subsection{Scaling}
 
-I ran my final, NUMA-aware implementation on one to 28 threads to gain an insight into how my implementation scaled.
-I calculated the speedup that subsequent threads provided over a single thread implementation.
+I ran my final implementation from 1--28 threads to analyse how my program scaled.
+I then calculated the speedup that subsequent threads provided over a single thread implementation.
 Figure \ref{fig:scaling} displays the resultant speedup curves.
 
 \begin{figure}[htpb]
@@ -467,8 +454,8 @@ Figure \ref{fig:scaling} displays the resultant speedup curves.
   \caption{Speedup curves for my NUMA-aware implementation}\label{fig:scaling}
 \end{figure}
 
-In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent thread declines---this is known as a sublinear plateau.
-Notably, the amount of speedup provided by each subsequent core is approximately inversely proportional to the test case size.
+In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent thread declined---this is known as a sublinear plateau.
+Notably, the amount of speedup provided by each subsequent core was approximately inversely proportional to the test case size.
 In other words, larger grid sizes benefit more from a multithreaded implementation than smaller grid sizes---this is because the smaller grids saturate the memory bandwidth sooner.
 
 \subsection{Comparison to Serial Optimised}
@@ -478,7 +465,7 @@ On the $1024\times1024$ test case, my program achieved an arithmetic intensity o
 
 \begin{figure}[htbp]
   \includegraphics[width=\linewidth]{roofline_numa.png}
-  \caption{Screenshot of the Intel Advisor Roofline Analysis for my NUMA-aware implementation, run with 28 threads on the $1024\times1024$ test case}\label{fig:roofline_numa}
+  \caption{Roofline chart of final implementation, run on the $1024\times1024$ test case}\label{fig:roofline_numa}
 \end{figure}
 
 Compared to my vectorized implementation, the arithmetic intensity was identical, whereas the performance increased by a factor of 16.60.

@@ -16,12 +16,12 @@
 \renewcommand*{\bibfont}{\footnotesize}
 
 \author{
-    George Herbert\\
-    \texttt{cj19328@bristol.ac.uk}
+  George Herbert\\
+  \texttt{cj19328@bristol.ac.uk}
 }
 
-
 \title{\vspace{-2em}Optimising and Parallelising d2q9-bgk.c}
+
 \begin{document}
 
 \maketitle
@@ -73,10 +73,10 @@ Table \ref{tab:icc} contains the execution times after compiling with ICC.
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 22.54}&\texttt{}\\
-      $128 \times 256$&\texttt{ 45.56}&\texttt{}\\
-      $256 \times 256$&\texttt{179.06}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 22.54}&\texttt{1.29}\\
+      $128 \times 256$&\texttt{ 45.56}&\texttt{1.29}\\
+      $256 \times 256$&\texttt{179.06}&\texttt{1.30}\\
+      $1024 \times 1024$&\texttt{805.21}&\texttt{1.22}\\
       \hline
     \end{tabular}
   \end{center}
@@ -86,7 +86,7 @@ Table \ref{tab:icc} contains the execution times after compiling with ICC.
 
 I hypothesised that I could compile my program with more aggressive optimisations to improve performance, whilst still producing the correct solution.
 I compiled my code with the \texttt{-Ofast} option, which implemented additional aggressive floating-point optimisations \cite{icc}.
-These changes to the compilation process provided a good performance boost, as evident in Table \ref{tab:compiler_options}.
+These changes to the compilation process provided a small performance boost, as evident in Table \ref{tab:compiler_options}.
 
 \begin{table}[htbp]
   \begin{center}
@@ -95,10 +95,10 @@ These changes to the compilation process provided a good performance boost, as e
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 22.25}&\texttt{}\\
-      $128 \times 256$&\texttt{ 44.42}&\texttt{}\\
-      $256 \times 256$&\texttt{176.69}&\texttt{}\\
-      $1024 \times 1024$&\texttt{795.41}&\texttt{}\\
+      $128 \times 128$&\texttt{ 22.18}&\texttt{1.02}\\
+      $128 \times 256$&\texttt{ 44.42}&\texttt{1.03}\\
+      $256 \times 256$&\texttt{176.69}&\texttt{1.01}\\
+      $1024 \times 1024$&\texttt{794.44}&\texttt{1.01}\\
       \hline
     \end{tabular}
   \end{center}
@@ -270,10 +270,10 @@ There is a significant speedup over the vectorized implementation because the pr
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 1.14}&\texttt{}\\
-      $128 \times 256$&\texttt{ 1.35}&\texttt{}\\
-      $256 \times 256$&\texttt{ 3.33}&\texttt{}\\
-      $1024 \times 1024$&\texttt{14.38}&\texttt{}\\
+      $128 \times 128$&\texttt{ 1.14}&\texttt{ 5.06}\\
+      $128 \times 256$&\texttt{ 1.35}&\texttt{ 8.57}\\
+      $256 \times 256$&\texttt{ 3.33}&\texttt{12.48}\\
+      $1024 \times 1024$&\texttt{14.38}&\texttt{14.99}\\
       \hline
     \end{tabular}
   \end{center}
@@ -300,10 +300,10 @@ The NUMA-aware implementation produced a reasonable performance boost, by virtue
       \cline{3-4}
       Grid Size&Time (s)&Prior&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.72}&\texttt{}&\texttt{ 8.01}\\
-      $128 \times 256$&\texttt{ 0.80}&\texttt{}&\texttt{14.46}\\
-      $256 \times 256$&\texttt{ 2.47}&\texttt{}&\texttt{16.82}\\
-      $1024 \times 1024$&\texttt{12.81}&\texttt{}&\texttt{16.83}\\
+      $128 \times 128$&\texttt{ 0.72}&\texttt{1.58}&\texttt{ 8.01}\\
+      $128 \times 256$&\texttt{ 0.80}&\texttt{1.69}&\texttt{14.46}\\
+      $256 \times 256$&\texttt{ 2.47}&\texttt{1.35}&\texttt{16.82}\\
+      $1024 \times 1024$&\texttt{12.81}&\texttt{1.23}&\texttt{16.83}\\
       \hline
     \end{tabular}
   \end{center}

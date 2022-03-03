@@ -480,23 +480,36 @@ Whereas in the NUMA-aware implementation, 5777.32 GB and 1447.21 GB of data were
 
 \section{LBM in Go}
 
-Many other languages, APIs, and libraries can be utilized to implement LBM; all have associated advantages and disadvantages.
+Unlike C, Go is a language with concurrency built into its core design; consequently, parallelism can be implemented effortlessly.
+I seeked to investigate whether one could achieve a similar level of performance using Go's core features.
+This was important since in real-world scenarios people frequently sacrifice small amounts of performance for an increase in readability and ease.
 
-Unlike C, Go is a language with concurrency built into its core design.
-Consequently, one can achieve parallelism in Go effortlessly, without requiring significant knowledge of the underlying system or APIs such as OpenMP.
-As a final, interesting experiment, I produced an implementation of LBM in Go to identify whether Go's easily-understood core features could achieve a comparable amount of performance.
+I produced an implementation of LBM in Go, \texttt{d2q9-bgk.go}, using an almost identical algorithm to that in \texttt{d2q9-bgk.c}.
+In experiments, the Go implementation was significantly slower, as evident in Table \ref{tab:go}.
 
-In experiments, the Go implementation was between seven and sixteen times slower.
-Specifically, it achieved a time of 7.66 seconds, 13.10 seconds, 41.83 seconds and 103.02 seconds on the increasingly large test cases.
-Upon inspection, there were likely several reasons for the comparatively poor performance.
-Firstly, Go's compiler did not perform many optimisations.
-Compiling with GCCGO or GOLLVM may have produced a better-optimised executable; however, these required a complicated installation process, which was directly contradictory to the desired simplicity for the experiment.
-Secondly, and perhaps most prominently, was the lack of vectorization.
-Vectorizing code in Go requires external libraries or assembly, which similarly conflicted with the desired simplicity.
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times of \texttt{d2q9-bgk.go}, and speedup compared to the final \texttt{d2q9-bgk.c}}\label{tab:go}
+  \begin{tabular}{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{ 7.66}&\texttt{0.09}\\
+      $128 \times 256$&\texttt{13.10}&\texttt{0.06}\\
+      $256 \times 256$&\texttt{41.83}&\texttt{0.06}\\
+      $1024 \times 1024$&\texttt{103.02}&\texttt{0.12}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
 
-In conclusion, a similar implementation built with Go's easily-understood core features could not achieve an even remotely comparable level of performance.
+The reasons for the comparatively poor performance included poor compiler optimisations and an unvectorized inner loop.
+Methods exist to rectify these problems, however they are directly contradictory to the desired simplicity of the experiment.
+In conclusion, the similar implementation built using Go's core features failed to achieve a comparable level of performance.
+% Compiling with GCCGO or GOLLVM may have produced a better-optimised executable; however, these required a complicated install#ation process, which was directly contradictory to the desired simplicity for the experiment.
+% Vectorizing code in Go requires external libraries or assembly, which similarly conflicted with the desired simplicity.
 
-\section{Conclusion}
+\section{Conclusions}
 
 \printbibliography
 

@@ -29,7 +29,7 @@
 \section{Original Code}
 
 I ran the provided \texttt{Makefile} to compile the original \texttt{d2q9-bgk.c} code, which executed the GNU Compiler Collection (GCC) with the \texttt{-std=c99} \texttt{-O3} and \texttt{-lm} options.
-Table \ref{tab:original} contains the total time to initialise, compute and collate each test case when running the executable.
+Table \ref{tab:original} contains the execution time for each test case.
 
 \begin{table}[htbp]
     \begin{center}
@@ -47,35 +47,53 @@ Table \ref{tab:original} contains the total time to initialise, compute and coll
     \end{center}
 \end{table} 
 
-It was essential to measure the original code to quantify the performance improvements of my latter implementations.
-I measured each of the total times by taking an average of five runs on BlueCrystal Phase 4's (BC4's) compute nodes; each of BC4's compute nodes was a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-I took an average of multiple runs because of the variation between runs, which existed due to the inconsistent performance of compute nodes.
+I measured the original code to quantify the performance improvements of my latter implementations.
+Each time is an average of five runs on BlueCrystal Phase 4's (BC4's) compute nodes; each of which was a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+I took an average because of the variation between runs, which existed due to the inconsistent performance of compute nodes.
 % Not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
 
 \section{Compiler Optimisations}
 
 % I initially implemented a collection of serial optimisations to improve the performance of \texttt{d2q9-bgk.c}.
 
-\subsection{Intel C Compiler (ICC)}
+\subsection{Intel C Compiler Classic (ICC)}
 
-The first improvement I implemented was compiling with the Intel C Compiler Classic (ICC) instead of GCC since it produced an executable better optimised for BC4's Intel compute nodes.
-
-\subsection{Compiler Options}
-
-Furthermore, I compiled my code with the \texttt{-Ofast} option, which set aggressive options to improve the speed of my program, including \texttt{-O3} optimisations and aggressive floating-point optimisations \cite{icc}.
-These changes to the compilation process provided a good performance boost, as shown in Table \ref{tab:compiler_changes}.
+I hypothesised that compiling with ICC instead of GCC would produce an executable better optimised for BC4's Intel compute nodes.
+Table \ref{tab:icc} contains the execution times after compiling with ICC.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after compilation changes, and speedup over the original code}\label{tab:compiler_changes}
+  \caption{Execution times using ICC and speedup over the prior implementation}\label{tab:icc}
   \begin{tabular}{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 22.25}&\texttt{1.31}\\
-      $128 \times 256$&\texttt{ 44.42}&\texttt{1.32}\\
-      $256 \times 256$&\texttt{176.69}&\texttt{1.33}\\
-      $1024 \times 1024$&\texttt{795.41}&\texttt{1.23}\\
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\subsection{Compiler Options}
+
+I hypothesised that I could compile my program with more aggressive optimisations to improve performance, whilst still producing the correct solution.
+I compiled my code with the \texttt{-Ofast} option, which implemented additional aggressive floating-point optimisations \cite{icc}.
+These changes to the compilation process provided a good performance boost, as evident in Table \ref{tab:compiler_options}.
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times using new ICC options and speedup over the prior implementation}\label{tab:compiler_options}
+  \begin{tabular}{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{ 22.25}&\texttt{}\\
+      $128 \times 256$&\texttt{ 44.42}&\texttt{}\\
+      $256 \times 256$&\texttt{176.69}&\texttt{}\\
+      $1024 \times 1024$&\texttt{795.41}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
@@ -83,37 +101,33 @@ These changes to the compilation process provided a good performance boost, as s
 
 \section{Serial Optimisations}
 
-\subsection{Loop Fusion and Pointer Swap}
-
-Once I had improved the compilation process, I used the Intel Advisor tool to generate a Roofline chart, as shown in Figure \ref{fig:roofline_compiler}.
+I used the Intel Advisor tool to generate a Roofline chart, as shown in Figure \ref{fig:roofline_compiler}.
 
 \begin{figure}[htbp]
 \includegraphics[width=\linewidth]{roofline_compiler.png}
-\caption{Screenshot of the Intel Advisor Roofline Analysis for my implementation following compilation changes, run on the $1024\times1024$ test case}\label{fig:roofline_compiler}
+\caption{Screenshot of the Roofline chart following compilation changes, run on the $1024\times1024$ test case}\label{fig:roofline_compiler}
 \end{figure}
 
 I identified several attributes of my program and several key areas to focus my optimisations.
-Firstly, for larger grid sizes especially, the LBM implementation in \texttt{d2q9-bgk.c} was a memory bandwidth bound problem.
+For larger grid sizes especially, the LBM implementation in \texttt{d2q9-bgk.c} was a memory bandwidth bound problem.
 \texttt{d2q9-bgk.c} achieved an average arithmetic intensity of 0.25 FLOP/byte and performance of 3.44 GFLOPS for the $1024 \times 1024$ test case.
 
-From this, I identified a significant opportunity to optimise \texttt{d2q9-bgk.c} by decreasing the number of memory accesses.
-Decreasing the quantity of bytes accessed would simultaneously increase the performance of the implementation whilst also increasing the arithmetic intensity, which would have the additional benefit of increasing the performance bound for my latter implementations.
+\subsection{Loop Fusion}
 
-One method I utilised to accomplish this was loop fusion.
+Using the Roofline chart, I identified that decreasing the number of accesses to memory within each timestep would simultaneously increase my program's performance whilst also increasing the arithmetic intensity, thus raising the performance bound for my latter implementations. 
+
+To accomplish this I implemented loop fusion.
 In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
-By absorbing these four procedures into the \texttt{timestep} procedure and fusing the four loops, I drastically decreased the number of memory accesses, thereby improving my program's performance.
-
-Implementing loop fusion offered another significant opportunity to eliminate redundant memory accesses.
-The original code contained substantial value copying between the \texttt{cells} and \texttt{tmp\_cells} arrays.
-I was able to eliminate this by writing all new values of cells to a \texttt{cells\_new} array and simply swapping the pointers of \texttt{cells\_new} and \texttt{cells} at the end of each timestep.
-I removed the \texttt{tmp\_cells} array entirely.
+I fused the four loops within these procedures into a single loop in the \texttt{timestep} procedure.
+This enabled me to eliminate the temporary allocations of cell values to the \texttt{tmp\_cells} array.
+Instead, all new values of cells are written to the \texttt{cells\_new} array, and the pointers of \texttt{cells} and \texttt{cells\_new} are swapped each timestep.
 
 Table \ref{tab:loop_fusion_pointer_swap} displays the improvements to the execution time.
-Furthermore, due to these optimisations, the arithmetic intensity increased to 0.29 FLOP/byte and the performance increased to 3.54 GFLOPS for the $1024 \times 1024$ test case.
+Moreover, my program's arithmetic intensity increased to 0.29 FLOP/byte, and the performance increased to 3.54 GFLOPS for the $1024 \times 1024$ test case.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after loop fusion and pointer swap, and speedup over the original code}\label{tab:loop_fusion_pointer_swap}
+  \caption{Execution times with loop fusion and pointer swap, and speedup over the prior implementation}\label{tab:loop_fusion_pointer_swap}
   \begin{tabular}{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -146,7 +160,7 @@ These arithmetic improvements provided only a slight boost to performance compar
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after arithmetic improvements, and speedup over the original code}\label{tab:arithmetic_improvements}
+  \caption{Execution times with arithmetic improvements and speedup over the prior implementation}\label{tab:arithmetic_improvements}
   \begin{tabular}{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -167,17 +181,28 @@ I utilised several techniques to enforce single instruction, multiple data (SIMD
 
 \subsection{Array of Structures (AoS) to Structure of Arrays (SoA)}
 
-Firstly, I converted the \texttt{t\_speed} structure holding cell speeds from an Aos to an SoA.
+Firstly, I converted the \texttt{t\_speed} structure holding cell speeds from an AoS to an SoA.
 In the SoA format, the \texttt{t\_speed} structure contained nine pointers, each to an individual array of floats.
 Each array of floats contained the values of one vector for each cell within the grid.
 The SoA format greatly suited vectorisation of the inner loop since it kept memory accesses contiguous over structure instances.
 
-\subsection{SIMD Directives}
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with SoA and speedup over the prior implementation}\label{tab:soa}
+  \begin{tabular}{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
 
-Having altered the data layout to suit vectorization, I utilised several other techniques to enforce vectorization.
-I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
-This pragma indicated to the compiler to utilise SIMD instructions to execute operations within the inner loop on multiple data elements in a single instruction.
-Furthermore, I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
+\subsection{Memory Alignment and Disambiguation}
 
 I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
 The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
@@ -188,6 +213,29 @@ To align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variable
 I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\_\_assume(params.nx \% 16 == 0)} to inform the compiler that the dynamically allocated variables were aligned.
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
 
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with memory improvements and speedup over the prior implementation}\label{tab:memory}
+  \begin{tabular}{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\subsection{SIMD Directives}
+
+Having altered the data layout to suit vectorization, I utilised several other techniques to enforce vectorization.
+I implemented the \texttt{\#pragma omp simd} pragma to vectorise the inner loop within each timestep.
+This pragma indicated to the compiler to utilise SIMD instructions to execute operations within the inner loop on multiple data elements in a single instruction.
+Furthermore, I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
+
 Once I had utilised these techniques to enforce efficient vectorization of the inner loop, I compiled \texttt{d2q9-bgk.c} with the \texttt{-xAVX2} option to direct the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2) (which BC4's compute nodes do) \cite{lenovo}.
 I did not have to compile with any additional options to enable the compiler to follow OpenMP SIMD directives since the \texttt{-qopenmp-simd} option was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
 
@@ -197,7 +245,7 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after vectorization, and speedup over the original code}\label{tab:vectorized}
+  \caption{Execution times with vectorization and speedup over the prior implementation}\label{tab:vectorized}
   \begin{tabular}{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -227,17 +275,15 @@ Table \ref{tab:parallelised} displays the execution times for my parallel implem
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after parallelising (run with 28 threads), and speedup over both the original and vectorized code}\label{tab:parallelised}
-  \begin{tabular}{l | l  l  l} 
+  \caption{Execution times with 28 threads and speedup over the prior implementation}\label{tab:parallelised}
+  \begin{tabular}{l | l l} 
       \hline\hline
-      &&\multicolumn{2}{c}{Speedup}\\
-      \cline{3-4}
-      Grid Size&Time (s)&Original&Vectorized\\
+      Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 1.14}&\texttt{25.58}&\texttt{ 5.06}\\
-      $128 \times 256$&\texttt{ 1.35}&\texttt{43.49}&\texttt{ 8.57}\\
-      $256 \times 256$&\texttt{ 3.33}&\texttt{70.07}&\texttt{12.48}\\
-      $1024 \times 1024$&\texttt{14.38}&\texttt{68.21}&\texttt{14.88}\\
+      $128 \times 128$&\texttt{ 1.14}&\texttt{5.05}\\
+      $128 \times 256$&\texttt{ 1.35}&\texttt{5.07}\\
+      $256 \times 256$&\texttt{ 3.33}&\texttt{5.62}\\
+      $1024 \times 1024$&\texttt{14.38}&\texttt{4.55}\\
       \hline
     \end{tabular}
   \end{center}
@@ -255,17 +301,17 @@ Table \ref{tab:numa} contains the updated execution times for my final NUMA-awar
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times after writing NUMA-aware implementation (run with 28 threads), and speedup over both the original and vectorized code}\label{tab:numa}
+  \caption{Execution times with NUMA-aware 28 threads and speedup over the prior implementation}\label{tab:numa}
   \begin{tabular}{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
       \cline{3-4}
       Grid Size&Time (s)&Original&Vectorized\\
       \hline
-      $128 \times 128$&\texttt{ 0.72}&\texttt{40.5}&\texttt{ 8.01}\\
-      $128 \times 256$&\texttt{ 0.80}&\texttt{73.38}&\texttt{14.46}\\
-      $256 \times 256$&\texttt{ 2.47}&\texttt{94.46}&\texttt{16.82}\\
-      $1024 \times 1024$&\texttt{12.81}&\texttt{76.57}&\texttt{16.83}\\
+      $128 \times 128$&\texttt{ 0.72}&\texttt{}&\texttt{ 8.01}\\
+      $128 \times 256$&\texttt{ 0.80}&\texttt{}&\texttt{14.46}\\
+      $256 \times 256$&\texttt{ 2.47}&\texttt{}&\texttt{16.82}\\
+      $1024 \times 1024$&\texttt{12.81}&\texttt{}&\texttt{16.83}\\
       \hline
     \end{tabular}
   \end{center}

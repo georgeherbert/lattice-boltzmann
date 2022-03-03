@@ -189,7 +189,7 @@ I altered the \texttt{t\_speed} to contain nine pointers, each to an individual 
 Each array of floats contained the values of one vector for each cell within the grid.
 
 The SoA format actually increased the execution time of my program, as shown in Table \ref{tab:soa}.
-This is because the AoS format has better memory locality in the program's unvectorized form.
+This was because the SoA format had better memory locality in the program's unvectorized form.
 
 \begin{table}[htbp]
   \begin{center}
@@ -198,10 +198,10 @@ This is because the AoS format has better memory locality in the program's unvec
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ \space19.25}&\texttt{0.99}\\
+      $128 \times 256$&\texttt{ \space51.25}&\texttt{0.75}\\
+      $256 \times 256$&\texttt{ 211.45}&\texttt{0.73}\\
+      $1024 \times 1024$&\texttt{1102.18}&\texttt{0.56}\\
       \hline
     \end{tabular}
   \end{center}

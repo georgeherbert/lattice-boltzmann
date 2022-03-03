@@ -27,7 +27,7 @@
 
 \begin{abstract}
     \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
-    This report outlines the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c} and a detailed analysis of those techniques.
+    In this report I analyse the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c}.
 \end{abstract}
 
 \section{Original Code}
@@ -36,19 +36,19 @@ I ran the provided \texttt{Makefile} to compile the original \texttt{d2q9-bgk.c}
 Table \ref{tab:original} contains the execution time for each test case.
 
 \begin{table}[htbp]
-    \begin{center}
-    \caption{Execution times of the original code}\label{tab:original}
-    \begin{tabular}[t]{l | l} 
-        \hline\hline
-        Grid Size&Time (s)\\
-        \hline
-        $128 \times 128$&\texttt{ 29.16}\\
-        $128 \times 256$&\texttt{ 58.71}\\
-        $256 \times 256$&\texttt{233.32}\\
-        $1024 \times 1024$&\texttt{980.89}\\
-        \hline
-      \end{tabular}
-    \end{center}
+  \begin{center}
+  \caption{Execution times of the original code}\label{tab:original}
+  \begin{tabular}[t]{l | l} 
+      \hline\hline
+      Grid Size&Time (s)\\
+      \hline
+      $128 \times 128$&\texttt{ 29.16}\\
+      $128 \times 256$&\texttt{ 58.71}\\
+      $256 \times 256$&\texttt{233.32}\\
+      $1024 \times 1024$&\texttt{980.89}\\
+      \hline
+    \end{tabular}
+  \end{center}
 \end{table} 
 
 % I measured the original code to quantify the performance improvements of my latter implementations.

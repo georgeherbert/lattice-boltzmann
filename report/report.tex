@@ -1,7 +1,6 @@
 \documentclass[twocolumn, a4paper]{article}
 \usepackage[a4paper, left = 2cm, right = 2cm, top = 2cm, bottom = 2cm]{geometry}
 \usepackage[style = numeric, sorting = none, urldate = long]{biblatex}
-\usepackage{subfig}
 \usepackage{pgfplots}
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
@@ -39,7 +38,7 @@ Table \ref{tab:original} contains the execution time for each test case.
 \begin{table}[htbp]
     \begin{center}
     \caption{Execution times of the original code}\label{tab:original}
-    \begin{tabular}{l | l} 
+    \begin{tabular}[t]{l | l} 
         \hline\hline
         Grid Size&Time (s)\\
         \hline
@@ -69,7 +68,7 @@ Table \ref{tab:icc} contains the execution times after compiling with ICC.
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times using ICC and speedup over the prior implementation}\label{tab:icc}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
@@ -91,7 +90,7 @@ These changes to the compilation process provided a small performance boost, as 
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times using new ICC options and speedup over the prior implementation}\label{tab:compiler_options}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
@@ -133,7 +132,7 @@ Moreover, my program's arithmetic intensity increased to 0.29 FLOP/byte, and the
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times with loop fusion and pointer swap, and speedup over the prior implementation}\label{tab:loop_fusion_pointer_swap}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
@@ -165,7 +164,7 @@ I would expect a larger speedup in smaller grid sizes than the test cases provid
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times with arithmetic improvements and speedup over the prior implementation}\label{tab:arithmetic_improvements}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
@@ -194,7 +193,7 @@ This was because the SoA format had better memory locality in the program's unve
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times with SoA and speedup over the prior implementation}\label{tab:soa}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
@@ -233,14 +232,14 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times with vectorization and speedup over the prior implementation}\label{tab:vectorized}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{  \,\,\,5.77}&\texttt{}\\
-      $128 \times 256$&\texttt{ 11.57}&\texttt{}\\
-      $256 \times 256$&\texttt{ 41.55}&\texttt{}\\
-      $1024 \times 1024$&\texttt{215.52}&\texttt{}\\
+      $128 \times 128$&\texttt{ \space5.77}&\texttt{3.34}\\
+      $128 \times 256$&\texttt{ 11.57}&\texttt{4.43}\\
+      $256 \times 256$&\texttt{ 41.55}&\texttt{5.09}\\
+      $1024 \times 1024$&\texttt{215.52}&\texttt{5.11}\\
       \hline
     \end{tabular}
   \end{center}
@@ -266,7 +265,7 @@ There is a significant speedup over the vectorized implementation because the pr
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times with 28 threads and speedup over the prior implementation}\label{tab:parallelised}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
@@ -294,7 +293,7 @@ The NUMA-aware implementation produced a reasonable performance boost, by virtue
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times with NUMA-aware 28 threads, and speedup over both the prior and vectorized implementation}\label{tab:numa}
-  \begin{tabular}{l | l  l  l} 
+  \begin{tabular}[t]{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
       \cline{3-4}
@@ -495,7 +494,7 @@ In experiments, the Go implementation was significantly slower, as evident in Ta
 \begin{table}[htbp]
   \begin{center}
   \caption{Execution times of \texttt{d2q9-bgk.go}, and speedup compared to the final \texttt{d2q9-bgk.c}}\label{tab:go}
-  \begin{tabular}{l | l l} 
+  \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline

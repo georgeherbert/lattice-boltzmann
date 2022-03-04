@@ -27,12 +27,12 @@
 
 \begin{abstract}
     \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
-    In this report I analyse the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c}.
+    This report analyses the techniques I utilised to optimise and parallelise \texttt{d2q9-bgk.c}.
 \end{abstract}
 
 \section{Original Code}
 
-I ran the provided \texttt{Makefile} to compile the original \texttt{d2q9-bgk.c} code, which executed the GNU Compiler Collection (GCC) (version 4.8.5) with the \texttt{-std=c99} \texttt{-O3} and \texttt{-lm} options.
+I ran the provided \texttt{Makefile} to compile the original \texttt{d2q9-bgk.c}, which executed the GNU Compiler Collection (GCC) (version 4.8.5) with the \texttt{-std=c99} \texttt{-O3} and \texttt{-lm} options.
 Table \ref{tab:original} contains the execution time for each test case.
 
 \begin{table}[htbp]
@@ -52,7 +52,7 @@ Table \ref{tab:original} contains the execution time for each test case.
 \end{table} 
 
 % I measured the original code to quantify the performance improvements of my latter implementations.
-Each time was an average of five runs on BlueCrystal Phase 4's (BC4's) compute nodes; each of which was a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute node---a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
 I took an average because of the variation between runs, which existed due to the inconsistent performance of compute nodes.
 % Not all compute nodes offer the same performance all of the time, due to differing placement in the data centre, amongst other reasons.
 
@@ -64,7 +64,7 @@ I took an average because of the variation between runs, which existed due to th
 
 I hypothesised that compiling with the Intel C Compiler Classic (ICC) instead of GCC would produce an executable better optimised for BC4's Intel compute nodes.
 Table \ref{tab:icc} contains the execution times after compiling with ICC (version 19.1.3.304).
-The speedup was primarily because ICC vectorized two of the innermost nested loops in the \texttt{collision} procedure, which GCC did not. 
+Primarily, the speedup was because ICC vectorized two of the innermost nested loops in the \texttt{collision} procedure, which GCC did not. 
 
 \begin{table}[htbp]
   \begin{center}
@@ -84,7 +84,7 @@ The speedup was primarily because ICC vectorized two of the innermost nested loo
 
 \subsection{Compiler Options}
 
-I hypothesised that I could compile my program with more aggressive optimisations to improve performance, whilst still producing the correct solution.
+I hypothesised that I could compile my program with more aggressive optimisations to improve performance whilst still producing the correct solution.
 I compiled my code with the \texttt{-Ofast} option, which implemented additional aggressive floating-point optimisations \cite{icc}.
 These aggressive optimisations provided a small performance boost, as evident in Table \ref{tab:compiler_options}.
 
@@ -121,11 +121,10 @@ For larger grid sizes especially, the LBM implementation in \texttt{d2q9-bgk.c} 
 
 Using the Roofline model, I identified that decreasing the number of accesses to memory within each timestep would simultaneously increase my program's performance whilst also increasing the arithmetic intensity, thus raising the performance bound for my latter implementations. 
 
-To accomplish this I implemented loop fusion.
+To accomplish this, I implemented loop fusion.
 In the original code, the entire grid was iterated over in four sequential procedures within each timestep: \texttt{propagate}, \texttt{rebound}, \texttt{collision} and \texttt{av\_velocity}.
-I fused the four loops within these procedures into a single loop in the \texttt{timestep} function.
-This enabled me to eliminate the temporary allocations of cell values to the \texttt{tmp\_cells} array.
-Instead, all new values of cells were written to the \texttt{cells\_new} array, and the pointers of \texttt{cells} and \texttt{cells\_new} were swapped each timestep.
+I fused the four loops within these procedures into a single loop in the \texttt{timestep} function, which enabled me to eliminate the temporary allocations of cell values to the \texttt{tmp\_cells} array.
+Instead, my program wrote new values of cells to the \texttt{cells\_new} array; each timestep, my program swapped the pointers of \texttt{cells} and \texttt{cells\_new}.
 
 Table \ref{tab:loop_fusion_pointer_swap} displays the improvements to the execution time.
 Moreover, my program's arithmetic intensity increased to 0.29 FLOP/byte, and the performance increased to 3.54 GFLOPS for the $1024 \times 1024$ test case.
@@ -151,16 +150,15 @@ Moreover, my program's arithmetic intensity increased to 0.29 FLOP/byte, and the
 Despite the compiler optimising the arithmetic within each timestep, I hypothesised I could make some manual improvements to further reduce my program's execution time.
 
 Division operations take considerably more time to execute than other basic arithmetic operations, such as multiplication.
-To eliminate a several unnecessary division operations, I precalculated several values: \texttt{c\_sq\_r}, the reciprocal of $c^2$; \texttt{two\_c\_sq\_r}, the reciprocal of $2c^2$; and \texttt{two\_c\_sq\_sq\_r}, the reciprocal of $2c^4$, where $c$ was the speed of sound.
+I precalculated several values to eliminate unnecessary division operations: \texttt{c\_sq\_r}, the reciprocal of $c^2$; \texttt{two\_c\_sq\_r}, the reciprocal of $2c^2$; and \texttt{two\_c\_sq\_sq\_r}, the reciprocal of $2c^4$, where $c$ was the speed of sound.
 I then replaced several division operations with multiplications by these values.
 
 Additionally, I eliminated the repeated calculation and division of \texttt{tot\_cells} (i.e. the number of cells that were not obstacles) each timestep.
-To do so, my program calculated \texttt{tot\_cells} once during the initialisation phase.
-I then set the reciprocal of this value in the \texttt{params.num\_non\_obstacles\_r} variable, which I multiplied with \texttt{tot\_u} to compute the average velocity each timestep.
+Instead, my program calculated \texttt{tot\_cells} once during the initialisation phase.
+I then set the reciprocal of this value in \texttt{params.num\_non\_obstacles\_r}, which I multiplied with \texttt{tot\_u} to compute each timestep's average velocity.
 
-These arithmetic improvements provided only a slight speedup compared to the prior implementation, as shown in Table \ref{tab:arithmetic_improvements}.
-This was because the execution time of my program was dominated by memory accesses.
-I would expect a larger speedup in smaller grid sizes than the test cases provided.
+These arithmetic improvements provided only a slight speedup compared to the previous implementation, as shown in Table \ref{tab:arithmetic_improvements}; this was because memory accesses dominated my program's execution time.
+I would expect a more considerable speedup in smaller grid sizes than the test cases provided.
 
 \begin{table}[htbp]
   \begin{center}
@@ -184,12 +182,12 @@ Vectorization is the process of converting a scalar implementation to a vector i
 
 \subsection{Structure of Arrays}
 
-I hypothesised that converting the \texttt{t\_speed} structrue from an array of structures (AoS) to a structure of arrays (SoA) would suit vectorisation of the inner loop; the SoA format would keep memory accesses contiguous over structure instances.
+I hypothesised that converting the \texttt{t\_speed} structure from an array of structures (AoS) to a structure of arrays (SoA) would suit vectorisation of the inner loop; the SoA format would keep memory accesses contiguous over structure instances.
 I altered the \texttt{t\_speed} structure to contain nine pointers, each to an individual array of floats.
 Each array of floats contained the values of one vector for each cell within the grid.
 
-The SoA format actually increased the execution time of my program, as shown in Table \ref{tab:soa}.
-This was because the AoS format had better memory locality in the program's mostly unvectorized form.
+The SoA format increased the execution time of my program, as shown in Table \ref{tab:soa}.
+Upon inspection, the AoS format had better memory locality in the program's primarily unvectorized form.
 
 \begin{table}[htbp]
   \begin{center}
@@ -217,14 +215,13 @@ I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
 
 I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.
-The \texttt{restrict} keyword asserted that the memory referenced by these pointers was not aliased.
-This prevented the compiler from performing a runtime check for aliasing.
+The \texttt{restrict} keyword asserted that these pointers were not aliased, which prevented the compiler from performing a runtime check for aliasing.
 
-I implemented the \texttt{\#pragma omp simd} pragma to direct to the compiler to utilise SIMD instructions to execute operations within the inner loop in \texttt{timestep}.
-I utilised the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
+I implemented the \texttt{\#pragma omp simd} pragma to direct the compiler to utilise SIMD instructions to execute operations within the inner loop in \texttt{timestep}.
+I used the \texttt{reduction(+:tot\_u)} clause to ensure the \texttt{tot\_u} variable contained the correct value at the loop's termination.
 
 I compiled with the \texttt{-xAVX2} option to tell the compiler to optimise for Intel processors that support Advanced Vector Extensions 2 (AVX2) (which BC4's compute nodes do) \cite{lenovo}.
-I did not have to compile with the \texttt{-qopenmp-simd} option explicitly, since it was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
+I did not have to compile explicitly with the \texttt{-qopenmp-simd} option, since it was enabled by default at the \texttt{-Ofast} optimisation level \cite{icc}.
 
 Vectorization provided the most considerable improvement of any optimisation that I had implemented to this point, as shown in Table \ref{tab:vectorized}.
 This was because the compiler could produce AVX2 instructions that could perform simultaneous operations on up to eight single-precision floating-point numbers.
@@ -254,14 +251,14 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
 \subsection{OpenMP}
 
 Using the Intel Advisor tool, I identified that a large proportion of my program's execution time was in the inner loop in the \texttt{timestep} function.
-Therefore, I hypothesised that parallelising the outer loop would provide a substantial preformance improvement.
+Therefore, I hypothesised that parallelising the outer loop would psubstantially improve performance.
 
 OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently.
-To parallelise the outer loop, I included OpenMP's \texttt{\#pragma omp parallel for} pragma, and compiled my code with the \texttt{-qopenmp} option.
-I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions; the reduction clause informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero), and to sum the local results at the end of the parallel region.
+I included OpenMP's \texttt{\#pragma omp parallel for} pragma, and compiled my code with the \texttt{-qopenmp} option to parallelise the outer loop.
+I used the clause \texttt{reduction(+:tot\_u)} to prevent race conditions; the reduction clause informed the compiler to create a copy of the \texttt{tot\_u} variable for each thread (initialised to zero) and to sum the local results at the end of the parallel region.
 
-Table \ref{tab:parallelised} displays the execution times for my parallel implementation, when run with 28 threads.
-There is a significant speedup over the vectorized implementation because the program was able to utilise a larger amount of L1 and L2 cache, and execute iterations of the inner loop in parallel.
+Table \ref{tab:parallelised} displays the execution times for my parallel implementation when run with 28 threads.
+There was a significant speedup over the vectorised implementation because the program could execute iterations of the inner loop in parallel and utilise more of the L1 and L2 cache.
 
 \begin{table}[htbp]
   \begin{center}
@@ -282,18 +279,18 @@ There is a significant speedup over the vectorized implementation because the pr
 \subsection{Non-Uniform Memory Access}
 
 Non-uniform memory access (NUMA) is a computer memory design in which memory access time depends on the memory location relative to the processor.
-I identified that memory for the \texttt{cells} and \texttt{obstacles} variables were being allocated the first thread in my prior implementation, in accordance with the first touch policy.
+I identified that memory for the \texttt{cells} and \texttt{obstacles} variables was allocated the first thread in my prior implementation, per the first touch policy.
 Therefore, I hypothesised that a NUMA-aware implementation would reduce the average memory access time.
 
-I parallelised the initialisation loops for \texttt{cells} and \texttt{obstacles} to ensure that each thread touched the same data in both the \texttt{initialise} and \texttt{timestep} procedures.
+I parallelised the initialisation loops for \texttt{cells} and \texttt{obstacles} to ensure that each thread touched the same data in the \texttt{initialise} and \texttt{timestep} procedures.
 Additionally, I set the environment variables \texttt{OMP\_PROC\_BIND=true} and \texttt{OMP\_PLACES=cores} to prevent threads from moving cores.
 
 Table \ref{tab:numa} contains the updated execution times for my final NUMA-aware implementation.
-The NUMA-aware implementation produced a reasonable performance boost, by virtue of reducing the average time to access a memory location.
+The NUMA-aware implementation produced a reasonable performance boost by reducing the average time to access a memory location.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with 28 thread NUMA-aware implementation, and speedup over both the prior and vectorized implementation}\label{tab:numa}
+  \caption{Execution times with 28 thread NUMA-aware implementation and speedup over both the prior and vectorized implementation}\label{tab:numa}
   \begin{tabular}[t]{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
@@ -312,7 +309,7 @@ The NUMA-aware implementation produced a reasonable performance boost, by virtue
 \subsection{Scaling}
 
 I ran my final implementation from 1--28 threads to analyse how my program scaled.
-I then calculated the speedup that subsequent threads provided over a single thread implementation.
+I then calculated the subsequent threads' speedup over a single thread implementation.
 Figure \ref{fig:scaling} displays the resultant speedup curves.
 
 \begin{figure}[htpb]
@@ -462,8 +459,8 @@ Figure \ref{fig:scaling} displays the resultant speedup curves.
   \caption{Speedup curves for my NUMA-aware implementation}\label{fig:scaling}
 \end{figure}
 
-In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent thread declined---this is known as a sublinear plateau.
-Notably, the amount of speedup provided by each subsequent core was approximately inversely proportional to the test case size.
+In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent thread declined (i.e. a sublinear plateau).
+Notably, the amount of speedup provided by each next core was approximately inversely proportional to the test case size.
 In other words, larger grid sizes benefitted more from a multithreaded implementation than smaller grid sizes---this was because the smaller grids saturated the memory bandwidth sooner.
 
 \subsection{Comparison to Serial}
@@ -476,21 +473,20 @@ On the $1024\times1024$ test case, my program achieved an arithmetic intensity o
   \caption{Roofline model of my final implementation, run on the $1024\times1024$ test case}\label{fig:roofline_numa}
 \end{figure}
 
-Compared to my vectorized implementation, the arithmetic intensity was identical, whereas the performance increased by a factor of 16.60.
-This was primarily due to two reasons.
-Firstly, by running across multiple threads on multiple cores, sections of the grid could be computed in parallel.
-Secondly, inspecting the Intel Advisor memory metrics highlighted that the parallel program did not have to interact with the DRAM, which had a lower bandwidth, as often.
+Compared to my vectorized implementation, the arithmetic intensity was identical, whereas the performance increased by a factor of 16.60, which was primarily due to two reasons.
+By running across multiple threads on multiple cores, the processor could compute sections of the grid in parallel.
+Additionally, the parallel program did not have to interact with the DRAM, which had a lower bandwidth, as often
 For example, in the \texttt{timestep} loop in the vectorized implementation, 5130.56 GB and 2306.03 GB of data were passed through the L1 cache and DRAM, respectively.
-Whereas in the NUMA-aware implementation, 5777.32 GB and 1447.21 GB of data were passed through the L1 cache and DRAM, respectively. 
+In the NUMA-aware implementation, 5777.32 GB and 1447.21 GB of data were passed through the L1 cache and DRAM, respectively. 
 
 \section{LBM in Go}
 
-Unlike C, Go is a language with concurrency built into its core design; consequently, parallelism can be implemented effortlessly.
-I seeked to investigate whether one could achieve a similar level of performance using Go's core features.
-This was important since in real-world scenarios people frequently sacrifice small amounts of performance for a simpler implementation.
+Unlike C, Go is a language with concurrency built into its core design; consequently, one can implement parallelism effortlessly.
+I sought to investigate whether one could achieve a similar level of performance using Go's core features.
+I deemed this important since people frequently sacrifice small amounts of performance for a more straightforward implementation in real-world scenarios.
 
 I produced an implementation of LBM in Go, \texttt{d2q9-bgk.go}, using an almost identical algorithm to that in \texttt{d2q9-bgk.c}.
-In experiments, the Go implementation was significantly slower, as evident in Table \ref{tab:go}.
+The Go implementation was significantly slower in experiments, as evident in Table \ref{tab:go}.
 
 \begin{table}[htbp]
   \begin{center}
@@ -509,8 +505,8 @@ In experiments, the Go implementation was significantly slower, as evident in Ta
 \end{table}
 
 The reasons for the comparatively poor performance included poor compiler optimisations and an unvectorized inner loop.
-Methods exist to partially rectify these problems, however they are directly contradictory to the desired simplicity of the experiment.
-In conclusion, one cannot achieve a comparable level of performance from a simpler implementation using Go's core features.
+Methods exist to rectify these problems partially; however, they are directly contradictory to the desired simplicity of the experiment.
+In conclusion, one cannot achieve a comparable level of performance from a more straightforward implementation using Go's core features.
 % Compiling with GCCGO or GOLLVM may have produced a better-optimised executable; however, these required a complicated install#ation process, which was directly contradictory to the desired simplicity for the experiment.
 % Vectorizing code in Go requires external libraries or assembly, which similarly conflicted with the desired simplicity.
 

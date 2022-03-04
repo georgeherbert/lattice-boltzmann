@@ -1,5 +1,5 @@
 \documentclass[twocolumn, a4paper]{article}
-\usepackage[a4paper, left = 2cm, right = 2cm, top = 2cm, bottom = 2cm]{geometry}
+\usepackage[a4paper, left = 1.75cm, right = 1.75cm, top = 1.75cm, bottom = 1.75cm]{geometry}
 \usepackage[style = numeric, sorting = none]{biblatex}
 \usepackage{pgfplots}
 \usepackage[T1]{fontenc}
@@ -153,9 +153,9 @@ Division operations take considerably more time to execute than other basic arit
 I precalculated several values to eliminate unnecessary division operations: \texttt{c\_sq\_r}, the reciprocal of $c^2$; \texttt{two\_c\_sq\_r}, the reciprocal of $2c^2$; and \texttt{two\_c\_sq\_sq\_r}, the reciprocal of $2c^4$, where $c$ was the speed of sound.
 I then replaced several division operations with multiplications by these values.
 
-Additionally, I eliminated the repeated calculation and division of \texttt{tot\_cells} (i.e. the number of cells that were not obstacles) each timestep.
+Additionally, I eliminated the repeated calculation of and division by \texttt{tot\_cells} (i.e. the number of cells that were not obstacles) each timestep.
 Instead, my program calculated \texttt{tot\_cells} once during the initialisation phase.
-I then set the reciprocal of this value in \texttt{params.num\_non\_obstacles\_r}, which I multiplied with \texttt{tot\_u} to compute each timestep's average velocity.
+It then stored the reciprocal of this value in \texttt{params.num\_non\_obstacles\_r}, which it multiplied with \texttt{tot\_u} to compute each timestep's average velocity.
 
 These arithmetic improvements provided only a slight speedup compared to the previous implementation, as shown in Table \ref{tab:arithmetic_improvements}; this was because memory accesses dominated my program's execution time.
 I would expect a more considerable speedup in smaller grid sizes than the test cases provided.
@@ -251,7 +251,7 @@ Furthermore, my implementation achieved an arithmetic intensity of 0.43 FLOP/byt
 \subsection{OpenMP}
 
 Using the Intel Advisor tool, I identified that a large proportion of my program's execution time was in the inner loop in the \texttt{timestep} function.
-Therefore, I hypothesised that parallelising the outer loop would psubstantially improve performance.
+Therefore, I hypothesised that parallelising the outer loop would substantially improve performance.
 
 OpenMP implements parallelism by launching a set of threads that execute portions of code concurrently.
 I included OpenMP's \texttt{\#pragma omp parallel for} pragma, and compiled my code with the \texttt{-qopenmp} option to parallelise the outer loop.
@@ -495,9 +495,9 @@ The Go implementation was significantly slower in experiments, as evident in Tab
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 7.66}&\texttt{0.09}\\
-      $128 \times 256$&\texttt{13.10}&\texttt{0.06}\\
-      $256 \times 256$&\texttt{41.83}&\texttt{0.06}\\
+      $128 \times 128$&\texttt{ \space7.66}&\texttt{0.09}\\
+      $128 \times 256$&\texttt{ 13.10}&\texttt{0.06}\\
+      $256 \times 256$&\texttt{ 41.83}&\texttt{0.06}\\
       $1024 \times 1024$&\texttt{103.02}&\texttt{0.12}\\
       \hline
     \end{tabular}
@@ -510,11 +510,11 @@ In conclusion, one cannot achieve a comparable level of performance from a more 
 % Compiling with GCCGO or GOLLVM may have produced a better-optimised executable; however, these required a complicated install#ation process, which was directly contradictory to the desired simplicity for the experiment.
 % Vectorizing code in Go requires external libraries or assembly, which similarly conflicted with the desired simplicity.
 
-\section{Conclusions}
+\section{Conclusion}
 
 In conclusion, the optimisations I utilised significantly improved the performance of \texttt{d2q9-bgk.c}.
 Across the increasingly large test cases, my program achieved a speedup of 40.5x, 73.39x, 96.46x and 76.57x compared to the original implementation.
-Vectorization and parallelism provided the most significant improvements because both implemented some degree of parallelism: data level and task level, respectively.
+Vectorization and OpenMP multithreading provided the most significant improvements because both implemented some degree of parallelism: data level and task level, respectively.
 
 \printbibliography
 

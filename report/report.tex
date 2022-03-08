@@ -217,7 +217,7 @@ To effect vectorization of the inner loop, I identified that I needed to align t
 
 Processors efficiently move data located on specific byte boundaries, and compilers can perform optimisations when data access is known to be aligned by 64 bytes \cite{alignment}.
 To align the \texttt{cells}, \texttt{cells\_new} and \texttt{obstacles} variables, I replaced calls to the \texttt{malloc} and \texttt{free} procedures with the alignment specific replacements: \texttt{\_mm\_malloc} and \texttt{\_mm\_free}, respectively.
-I used the \texttt{\_\_assume\_\_aligned} procedure and  the statement \texttt{\_\_assume(params.nx \% 16 == 0)} to inform the compiler that the dynamically allocated variables were aligned.
+I used the \texttt{\_\_assume\_aligned} procedure and  the statement \texttt{\_\_assume(params.nx \% 16 == 0)} to inform the compiler that the dynamically allocated variables were aligned.
 Doing so prevented the compiler from generating conservative code, which would have been detrimental to the speed of my implementation.
 
 I compiled my code with the \texttt{-restrict} option and used the \texttt{restrict} keyword to define each of the nine pointers in \texttt{t\_speed}.

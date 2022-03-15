@@ -71,8 +71,13 @@ typedef struct {
   float accel; /* density redistribution */
   float omega; /* relaxation parameter */
   float num_non_obstacles_r;
-  int start_index;
-  int stop_index;
+  int nprocs;
+  int rank;
+  int rank_up;
+  int rank_down;
+  int index_start;
+  int index_stop;
+  int num_rows;
 } t_param;
 
 /* struct to hold the 'speed' values */
@@ -154,9 +159,8 @@ int main(int argc, char* argv[]) {
 
   MPI_Init(&argc, &argv);
 
-  int nprocs, rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
+  MPI_Comm_size(MPI_COMM_WORLD, &(params.nprocs));
 
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
@@ -207,17 +211,21 @@ void allocate_rows(t_param* params, int rank, int nprocs) {
   int minimum_rows = params->ny / nprocs;
   int remainder = params->ny % nprocs;
   if (rank < remainder) {
-    params->start_index = (minimum_rows + 1) * rank;
-    params->stop_index = params->start_index + minimum_rows + 1;
+    params->index_start = (minimum_rows + 1) * rank;
+    params->index_stop = params->index_start + minimum_rows + 1;
   }
   else if (rank == remainder) { 
-    params->start_index = (minimum_rows + 1) * rank;
-    params->stop_index = params->start_index + minimum_rows;
+    params->index_start = (minimum_rows + 1) * rank;
+    params->index_stop = params->index_start + minimum_rows;
   }
   else {
-    params->start_index = remainder + minimum_rows * rank;
-    params->stop_index = params->start_index + minimum_rows;
+    params->index_start = remainder + minimum_rows * rank;
+    params->index_stop = params->index_start + minimum_rows;
   }
+  params->num_rows = params->index_start - params->index_start;
+
+  params->rank_up = (params->rank - 1) % params->nprocs;
+  params->rank_down = (params->rank + 1) % params->nprocs;
 }
 
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {

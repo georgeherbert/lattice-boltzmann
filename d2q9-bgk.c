@@ -71,6 +71,8 @@ typedef struct {
   float accel; /* density redistribution */
   float omega; /* relaxation parameter */
   float num_non_obstacles_r;
+  int start_index;
+  int stop_index;
 } t_param;
 
 /* struct to hold the 'speed' values */
@@ -93,6 +95,9 @@ typedef struct {
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr);
+
+/* allocates rows to the different processors */
+void allocate_rows(t_param* params, int rank, int nprocs);
 
 /* the main calculation methods. */
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
@@ -147,6 +152,12 @@ int main(int argc, char* argv[]) {
   init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels);
 
+  MPI_Init(&argc, &argv);
+
+  int nprocs, rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -187,7 +198,26 @@ int main(int argc, char* argv[]) {
   write_values(params, cells, obstacles, av_vels);
   finalise(&params, &cells, &cells_new, &obstacles, &av_vels);
 
+  MPI_Finalize();
+
   return EXIT_SUCCESS;
+}
+
+void allocate_rows(t_param* params, int rank, int nprocs) {
+  int minimum_rows = params->ny / nprocs;
+  int remainder = params->ny % nprocs;
+  if (rank < remainder) {
+    params->start_index = (minimum_rows + 1) * rank;
+    params->stop_index = params->start_index + minimum_rows + 1;
+  }
+  else if (rank == remainder) { 
+    params->start_index = (minimum_rows + 1) * rank;
+    params->stop_index = params->start_index + minimum_rows;
+  }
+  else {
+    params->start_index = remainder + minimum_rows * rank;
+    params->stop_index = params->start_index + minimum_rows;
+  }
 }
 
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {

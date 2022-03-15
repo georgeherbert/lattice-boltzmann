@@ -288,3 +288,7 @@ TSWLatexianTemp*
 
 # xwatermark package
 *.xwm
+
+# VS Code
+.vscode/*
+.ipynb_checkpoints/*

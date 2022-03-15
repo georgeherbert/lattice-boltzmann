@@ -1,15 +1,16 @@
 #!/bin/bash
 
 #SBATCH --job-name d2q9-bgk
-#SBATCH --nodes 4
+#SBATCH --nodes 2
 #SBATCH --ntasks-per-node 1
 #SBATCH --cpus-per-task 28
-#SBATCH --time 00:10:00
+#SBATCH --time 00:30:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
 #SBATCH --output d2q9-bgk.out
 #SBATCH --exclude=compute100
+#SBATCH --exclusive
 
 echo Running on host `hostname`
 echo Time is `date`
@@ -23,7 +24,7 @@ echo `echo $SLURM_JOB_NODELIST | uniq`
 # export OMP_PLACES=cores
 
 #! Run the executable
-mpirun -n 4 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
-mpirun -n 4 ./d2q9-bgk input_128x256.params obstacles_128x256.dat
-mpirun -n 4 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
-mpirun -n 4 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+mpirun ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+# mpirun ./d2q9-bgk input_128x256.params obstacles_128x256.dat
+# mpirun ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+# mpirun ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat

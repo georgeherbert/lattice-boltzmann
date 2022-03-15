@@ -55,11 +55,12 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include "mpi.h"
+#include <mpi.h>
 
 #define NSPEEDS 9
 #define FINALSTATEFILE "final_state.dat"
 #define AVVELSFILE "av_vels.dat"
+#define MASTER 0
 
 /* struct to hold the parameter values */
 typedef struct {
@@ -71,7 +72,7 @@ typedef struct {
   float accel; /* density redistribution */
   float omega; /* relaxation parameter */
   float num_non_obstacles_r;
-  int nprocs;
+  int size;
   int rank;
   int rank_up;
   int rank_down;
@@ -102,7 +103,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr);
 
 /* allocates rows to the different processors */
-void allocate_rows(t_param* params, int rank, int nprocs);
+void allocate_rows(t_param* params);
 
 /* the main calculation methods. */
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
@@ -137,10 +138,14 @@ int main(int argc, char* argv[]) {
   t_param params; /* struct to hold parameter values */
   t_speed* cells = NULL; /* grid containing fluid densities */
   t_speed* cells_new = NULL; /* scratch space */
-  int* obstacles = NULL; /* grid indicating which cells are blocked */
+  int* obstacles = NULL; /* grid indicating which cells are blocked  */
   float* av_vels = NULL; /* a record of the av. velocity computed for each timestep */
   struct timeval timstr; /* structure to hold elapsed time */
   double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
+
+  MPI_Init(&argc, &argv);
+  MPI_Comm_size(MPI_COMM_WORLD, &(params.size));
+  MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
 
   /* parse the command line */
   if (argc != 3) {
@@ -156,11 +161,6 @@ int main(int argc, char* argv[]) {
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels);
-
-  MPI_Init(&argc, &argv);
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
-  MPI_Comm_size(MPI_COMM_WORLD, &(params.nprocs));
 
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
@@ -207,25 +207,25 @@ int main(int argc, char* argv[]) {
   return EXIT_SUCCESS;
 }
 
-void allocate_rows(t_param* params, int rank, int nprocs) {
-  int minimum_rows = params->ny / nprocs;
-  int remainder = params->ny % nprocs;
-  if (rank < remainder) {
-    params->index_start = (minimum_rows + 1) * rank;
+void allocate_rows(t_param* params) {
+  int minimum_rows = params->ny / params->size;
+  int remainder = params->ny % params->size;
+  if (params->rank < remainder) {
+    params->index_start = (minimum_rows + 1) * params->rank;
     params->index_stop = params->index_start + minimum_rows + 1;
   }
-  else if (rank == remainder) { 
-    params->index_start = (minimum_rows + 1) * rank;
+  else if (params->rank == remainder) { 
+    params->index_start = (minimum_rows + 1) * params->rank;
     params->index_stop = params->index_start + minimum_rows;
   }
   else {
-    params->index_start = remainder + minimum_rows * rank;
+    params->index_start = remainder + minimum_rows * params->rank;
     params->index_stop = params->index_start + minimum_rows;
   }
   params->num_rows = params->index_start - params->index_start;
 
-  params->rank_up = (params->rank - 1) % params->nprocs;
-  params->rank_down = (params->rank + 1) % params->nprocs;
+  params->rank_up = (params->rank - 1) % params->size;
+  params->rank_down = (params->rank + 1) % params->size;
 }
 
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
@@ -273,7 +273,7 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
     ** respecting periodic boundary conditions (wrap around) */
     const int y_n = (jj + 1) % params.ny;
     const int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
-    #pragma omp simd reduction(+:tot_u)
+    // #pragma omp simd reduction(+:tot_u)
     for (int ii = 0; ii < params.nx; ii++) {
       /* determine indices of east and west axis-direction neighbours 
       ** respecting periodic boundary conditions (wrap around) */

@@ -268,7 +268,7 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
 
   /* loop over the cells in the grid */
   // #pragma omp parallel for schedule(static), reduction(+:tot_u)
-  for (int jj = params->index_start; jj < params.index_stop; jj++) {
+  for (int jj = ; jj < params.ny; jj++) {
     /* determine indices of north and south axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
     const int y_n = (jj + 1) % params.ny;

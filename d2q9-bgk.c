@@ -154,6 +154,15 @@ int main(int argc, char* argv[]) {
   init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels);
 
+  allocate_rows(&params);
+  // printf("\nSize: %d", params.size);
+  // printf("\nRank: %d", params.rank);
+  // printf("\nRank up: %d", params.rank_up);
+  // printf("\nRank down: %d", params.rank_down);
+  // printf("\nIndex start: %d", params.index_start);
+  // printf("\nIndex stop: %d", params.index_stop);
+  // printf("\nNumber of rows: %d\n", params.num_rows);
+
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -214,9 +223,9 @@ void allocate_rows(t_param* params) {
     params->index_start = remainder + minimum_rows * params->rank;
     params->index_stop = params->index_start + minimum_rows;
   }
-  params->num_rows = params->index_start - params->index_start;
+  params->num_rows = params->index_stop - params->index_start;
 
-  params->rank_up = (params->rank - 1) % params->size;
+  params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
   params->rank_down = (params->rank + 1) % params->size;
 }
 

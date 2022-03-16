@@ -135,6 +135,8 @@ int main(int argc, char* argv[]) {
   float* av_vels = NULL; /* a record of the av. velocity computed for each timestep */
   struct timeval timstr; /* structure to hold elapsed time */
   double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
+  MPI_Status status;
+  int tag = 0;
 
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &(params.size));
@@ -160,12 +162,40 @@ int main(int argc, char* argv[]) {
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   comp_tic = init_toc;
 
+  t_speed* sendbuf = malloc(sizeof(t_speed) * params.nx);
+  t_speed* recvbuf = malloc(sizeof(t_speed) * params.nx);
+
   for (int tt = 0; tt < params.maxIters; tt++) {
     accelerate_flow(params, cells, obstacles);
     av_vels[tt] = timestep(params, cells, cells_new, obstacles);
     t_speed* temporary = cells;
     cells = cells_new;
     cells_new = temporary;
+
+    // Send down receive up
+    for (int ii = 0; ii < params.nx; ii++) {
+      sendbuf[ii] = cells[ii + params.nx];
+    }
+    MPI_Sendrecv(
+      sendbuf, params.nx * 9, MPI_FLOAT, params.rank_down, tag, 
+      recvbuf, params.nx * 9, MPI_FLOAT, params.rank_up, tag,
+      MPI_COMM_WORLD, &status);
+    for (int ii = 0; ii < params.nx; ii++) {
+      cells[ii + params.nx * 65] = recvbuf[ii];
+    }
+
+    // Send up receive down
+    for (int ii = 0; ii < params.nx; ii++) {
+      sendbuf[ii] = cells[ii + params.nx * 64];
+    }
+    MPI_Sendrecv(
+      sendbuf, params.nx * 9, MPI_FLOAT, params.rank_up, tag, 
+      recvbuf, params.nx * 9, MPI_FLOAT, params.rank_down, tag,
+      MPI_COMM_WORLD, &status);
+    for (int ii = 0; ii < params.nx; ii++) {
+      cells[ii] = recvbuf[ii];
+    }
+
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
@@ -178,7 +208,34 @@ int main(int argc, char* argv[]) {
   comp_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   col_tic=comp_toc;
 
-  // Collate data from ranks here 
+  // Collate data from ranks here
+  free(sendbuf);
+  free(recvbuf);
+  sendbuf = malloc(sizeof(t_speed) * params.nx * 64);
+  recvbuf = malloc(sizeof(t_speed) * params.nx * 64);
+  t_speed* cells_complete = malloc(sizeof(t_speed) * params.nx * params.ny);
+
+  if (params.rank == 0) {
+    MPI_Recv(recvbuf, params.nx * 64 * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
+    for (int jj = 0; jj < 64; jj++) {
+      for (int ii = 0; ii < params.nx; ii++) {
+        cells_complete[ii + (jj + 64) * params.nx] = cells[ii + (jj + 1) * params.nx];
+      }
+    }
+    for (int jj = 0; jj < 64; jj++) {
+      for (int ii = 0; ii < params.nx; ii++) {
+        cells_complete[ii + jj * params.nx] = recvbuf[ii + jj * params.nx];
+      }
+    }
+  }
+  else if (params.rank == 1) {
+    for (int jj = 0; jj < 64; jj++) {
+      for (int ii = 0; ii < params.nx; ii++) {
+        sendbuf[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
+      }
+    }
+    MPI_Send(sendbuf, params.nx * 64 * 9, MPI_FLOAT, params.rank_up, tag, MPI_COMM_WORLD);
+  }
 
   /* Total/collate time stops here.*/
   gettimeofday(&timstr, NULL);
@@ -186,14 +243,19 @@ int main(int argc, char* argv[]) {
   tot_toc = col_toc;
   
   /* write final values and free memory */
-  printf("==done==\n");
-  printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles));
-  printf("Elapsed Init time:\t\t\t%.6lf (s)\n", init_toc - init_tic);
-  printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_toc - comp_tic);
-  printf("Elapsed Collate time:\t\t\t%.6lf (s)\n", col_toc  - col_tic);
-  printf("Elapsed Total time:\t\t\t%.6lf (s)\n", tot_toc  - tot_tic);
-  write_values(params, cells, obstacles, av_vels);
+  if (params.rank == 0) {
+    printf("==done==\n");
+    printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells_complete, obstacles));
+    printf("Elapsed Init time:\t\t\t%.6lf (s)\n", init_toc - init_tic);
+    printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_toc - comp_tic);
+    printf("Elapsed Collate time:\t\t\t%.6lf (s)\n", col_toc  - col_tic);
+    printf("Elapsed Total time:\t\t\t%.6lf (s)\n", tot_toc  - tot_tic);
+    write_values(params, cells_complete, obstacles, av_vels);
+  }
   finalise(&params, &cells, &cells_new, &obstacles, &av_vels);
+  free(sendbuf);
+  free(recvbuf);
+  free(cells_complete);
 
   MPI_Finalize();
 
@@ -206,23 +268,25 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
   float w2 = params.density * params.accel / 36.f;
 
   /* modify the 2nd row of the grid */
-  int jj = params.ny - 2;
+  if (params.rank == 0) {
+    int jj = 63;
 
-  for (int ii = 0; ii < params.nx; ii++) {
-    /* if the cell is not occupied and
-    ** we don't send a negative density */
-    if (!obstacles[ii + jj*params.nx]
-      && (cells[ii + jj*params.nx].speeds[3] - w1) > 0.f
-      && (cells[ii + jj*params.nx].speeds[6] - w2) > 0.f
-      && (cells[ii + jj*params.nx].speeds[7] - w2) > 0.f) {
-      /* increase 'east-side' densities */
-      cells[ii + jj*params.nx].speeds[1] += w1;
-      cells[ii + jj*params.nx].speeds[5] += w2;
-      cells[ii + jj*params.nx].speeds[8] += w2;
-      /* decrease 'west-side' densities */
-      cells[ii + jj*params.nx].speeds[3] -= w1;
-      cells[ii + jj*params.nx].speeds[6] -= w2;
-      cells[ii + jj*params.nx].speeds[7] -= w2;
+    for (int ii = 0; ii < params.nx; ii++) {
+      /* if the cell is not occupied and
+      ** we don't send a negative density */
+      if (!obstacles[ii + 126 * params.nx]
+        && (cells[ii + jj*params.nx].speeds[3] - w1) > 0.f
+        && (cells[ii + jj*params.nx].speeds[6] - w2) > 0.f
+        && (cells[ii + jj*params.nx].speeds[7] - w2) > 0.f) {
+        /* increase 'east-side' densities */
+        cells[ii + jj*params.nx].speeds[1] += w1;
+        cells[ii + jj*params.nx].speeds[5] += w2;
+        cells[ii + jj*params.nx].speeds[8] += w2;
+        /* decrease 'west-side' densities */
+        cells[ii + jj*params.nx].speeds[3] -= w1;
+        cells[ii + jj*params.nx].speeds[6] -= w2;
+        cells[ii + jj*params.nx].speeds[7] -= w2;
+      }
     }
   }
 
@@ -239,11 +303,11 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
   float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
   /* loop over the cells in the grid */
-  for (int jj = 0; jj < params.ny; jj++) {
+  for (int jj = 1; jj < 65; jj++) {
     /* determine indices of north and south axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
-    const int y_n = (jj + 1) % params.ny;
-    const int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
+    const int y_n = jj + 1;
+    const int y_s = jj - 1;
     for (int ii = 0; ii < params.nx; ii++) {
       /* determine indices of east and west axis-direction neighbours 
       ** respecting periodic boundary conditions (wrap around) */
@@ -251,7 +315,15 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
       const int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
 
       /* if the cell contains an obstacle */
-      if (obstacles[ii + jj*params.nx]) {
+      int obstacles_jj;
+      if (params.rank == 0) {
+        obstacles_jj = jj + 63;
+      }
+      else if (params.rank == 1) {
+        obstacles_jj = jj;
+      }
+
+      if (obstacles[ii + obstacles_jj*params.nx]) {
         /* run after propagate stage, so taking values from speed variables
         ** mirroring, and writing into cells_new grid */
         cells_new[ii + jj*params.nx].speeds[0] = cells[ii + jj * params.nx].speeds[0];
@@ -405,7 +477,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   printf("\nRank down: %d", params->rank_down);
   printf("\nIndex start: %d", params->index_start);
   printf("\nIndex stop: %d", params->index_stop);
-  printf("\nNumber of rows: %d\n", params->num_rows);
+  printf("\nNumber of rows: %d", params->num_rows);
   printf("\nNumber of extended rows: %d\n", params->num_rows_extended);
 
   /*
@@ -428,11 +500,11 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   */
 
   /* main grid */
-  *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * (params->ny * params->nx));
+  *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * (66 * params->nx));
   if (*cells_ptr == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
   /* 'helper' grid, used as scratch space */
-  *cells_new_ptr = (t_speed*)malloc(sizeof(t_speed) * (params->ny * params->nx));
+  *cells_new_ptr = (t_speed*)malloc(sizeof(t_speed) * (66 * params->nx));
   if (*cells_new_ptr == NULL) die("cannot allocate memory for cells_new", __LINE__, __FILE__);
 
   /* the map of obstacles */
@@ -445,7 +517,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   float w2 = params->density / 36.f;
 
   // #pragma omp parallel for schedule(static)
-  for (int jj = 0; jj < params->ny; jj++) {
+  for (int jj = 0; jj < 66; jj++) {
     for (int ii = 0; ii < params->nx; ii++) {
       /* centre */
       (*cells_ptr)[ii + jj*params->nx].speeds[0] = w0;

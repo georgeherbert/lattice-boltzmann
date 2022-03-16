@@ -76,6 +76,7 @@ typedef struct {
   int rank;
   int rank_up;
   int rank_down;
+  int rank_accelerate;
   int index_start;
   int index_stop;
   int num_rows;
@@ -173,7 +174,7 @@ int main(int argc, char* argv[]) {
   comp_tic = init_toc;
 
   for (int tt = 0; tt < params.maxIters; tt++) {
-    accelerate_flow(params, cells, obstacles);
+    if (params.rank_accelerate) accelerate_flow(params, cells, obstacles);
     av_vels[tt] = timestep(params, cells, cells_new, obstacles);
     t_speed* temporary = cells;
     cells = cells_new;
@@ -276,25 +277,23 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
   float w2 = params.density * params.accel / 36.f;
 
   /* modify the 2nd row of the grid */
-  if (params.rank == 1) {
-    int jj = 63;
+  int jj = params.num_rows - 1;
 
-    for (int ii = 0; ii < params.nx; ii++) {
-      /* if the cell is not occupied and
-      ** we don't send a negative density */
-      if (!obstacles[ii + 62 * params.nx]
-        && (cells[ii + jj*params.nx].speeds[3] - w1) > 0.f
-        && (cells[ii + jj*params.nx].speeds[6] - w2) > 0.f
-        && (cells[ii + jj*params.nx].speeds[7] - w2) > 0.f) {
-        /* increase 'east-side' densities */
-        cells[ii + jj*params.nx].speeds[1] += w1;
-        cells[ii + jj*params.nx].speeds[5] += w2;
-        cells[ii + jj*params.nx].speeds[8] += w2;
-        /* decrease 'west-side' densities */
-        cells[ii + jj*params.nx].speeds[3] -= w1;
-        cells[ii + jj*params.nx].speeds[6] -= w2;
-        cells[ii + jj*params.nx].speeds[7] -= w2;
-      }
+  for (int ii = 0; ii < params.nx; ii++) {
+    /* if the cell is not occupied and
+    ** we don't send a negative density */
+    if (!obstacles[ii + 62 * params.nx]
+      && (cells[ii + jj*params.nx].speeds[3] - w1) > 0.f
+      && (cells[ii + jj*params.nx].speeds[6] - w2) > 0.f
+      && (cells[ii + jj*params.nx].speeds[7] - w2) > 0.f) {
+      /* increase 'east-side' densities */
+      cells[ii + jj*params.nx].speeds[1] += w1;
+      cells[ii + jj*params.nx].speeds[5] += w2;
+      cells[ii + jj*params.nx].speeds[8] += w2;
+      /* decrease 'west-side' densities */
+      cells[ii + jj*params.nx].speeds[3] -= w1;
+      cells[ii + jj*params.nx].speeds[6] -= w2;
+      cells[ii + jj*params.nx].speeds[7] -= w2;
     }
   }
 
@@ -311,7 +310,7 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
   float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
   /* loop over the cells in the grid */
-  for (int jj = 1; jj < 65; jj++) {
+  for (int jj = 1; jj < params.num_rows + 1; jj++) {
     /* determine indices of north and south axis-direction neighbours 
     ** respecting periodic boundary conditions (wrap around) */
     const int y_n = jj + 1;
@@ -421,8 +420,8 @@ void allocate_rows(t_param* params) {
     params->index_start = remainder + minimum_rows * params->rank;
     params->index_stop = params->index_start + minimum_rows;
   }
+  params->rank_accelerate = (params->ny - 2 >= params->index_start && params->ny - 2 < params->index_stop);
   params->num_rows = params->index_stop - params->index_start;
-
   params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
   params->rank_down = (params->rank + 1) % params->size;
 }
@@ -500,15 +499,15 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   */
 
   /* main grid */
-  *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * (66 * params->nx));
+  *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * ((params->num_rows + 2) * params->nx));
   if (*cells_ptr == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
   /* 'helper' grid, used as scratch space */
-  *cells_new_ptr = (t_speed*)malloc(sizeof(t_speed) * (66 * params->nx));
+  *cells_new_ptr = (t_speed*)malloc(sizeof(t_speed) * ((params->num_rows + 2) * params->nx));
   if (*cells_new_ptr == NULL) die("cannot allocate memory for cells_new", __LINE__, __FILE__);
 
   /* the map of obstacles */
-  *obstacles_ptr = malloc(sizeof(int) * (64 * params->nx));
+  *obstacles_ptr = malloc(sizeof(int) * (params->num_rows * params->nx));
   if (*obstacles_ptr == NULL) die("cannot allocate column memory for obstacles", __LINE__, __FILE__);
 
   *obstacles_output = malloc(sizeof(int) * (params->ny * params->nx));
@@ -568,18 +567,11 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     if (blocked != 1) die("obstacle blocked value should be 1", __LINE__, __FILE__);
 
     /* assign to array */
-    if (params->rank == 1) {
-      if (yy >= 64) {
-        (*obstacles_ptr)[xx + (yy - 64) * params->nx] = blocked;
-      }
+    if (yy >= params->index_start && yy < params->index_stop) {
+      (*obstacles_ptr)[xx + (yy - params->index_start) * params->nx] = blocked;
     }
-    else {
-      if (yy < 64) {
-        (*obstacles_ptr)[xx + yy * params->nx] = blocked;
-      }
-    }
-    ++num_obstacles;
     (*obstacles_output)[xx + yy * params->nx] = blocked;
+    ++num_obstacles;
   }
   params->num_non_obstacles_r = 1.f / (params->nx * params->ny - num_obstacles);
 
@@ -596,8 +588,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   *send_row_buffer = malloc(sizeof(t_speed) * params->nx);
   *receive_row_buffer  = malloc(sizeof(t_speed) * params->nx);
 
-  *send_section_buffer = malloc(sizeof(t_speed) * params->nx * 64);
-  *receive_section_buffer = malloc(sizeof(t_speed) * params->nx * 64);
+  *send_section_buffer = malloc(sizeof(t_speed) * params->nx * params->num_rows);
+  *receive_section_buffer = malloc(sizeof(t_speed) * params->nx * params->num_rows);
   *cells_complete = malloc(sizeof(t_speed) * params->nx * params->ny);
 
   return EXIT_SUCCESS;

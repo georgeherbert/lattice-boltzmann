@@ -189,12 +189,12 @@ int main(int argc, char* argv[]) {
       receive_row_buffer, params.nx * 9, MPI_FLOAT, params.rank_up, tag,
       MPI_COMM_WORLD, &status);
     for (int ii = 0; ii < params.nx; ii++) {
-      cells[ii + params.nx * 65] = receive_row_buffer[ii];
+      cells[ii + params.nx * (params.num_rows + 1)] = receive_row_buffer[ii];
     }
 
     // Send up receive down
     for (int ii = 0; ii < params.nx; ii++) {
-      send_row_buffer[ii] = cells[ii + params.nx * 64];
+      send_row_buffer[ii] = cells[ii + params.nx * params.num_rows];
     }
     MPI_Sendrecv(
       send_row_buffer, params.nx * 9, MPI_FLOAT, params.rank_up, tag, 
@@ -218,25 +218,25 @@ int main(int argc, char* argv[]) {
 
   // Collate data from ranks here
   if (params.rank == MASTER) {
-    MPI_Recv(receive_section_buffer, params.nx * 64 * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
-    for (int jj = 0; jj < 64; jj++) {
+    MPI_Recv(receive_section_buffer, params.nx * params.num_rows * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
+    for (int jj = 0; jj < params.num_rows; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
         cells_complete[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
       }
     }
-    for (int jj = 0; jj < 64; jj++) {
+    for (int jj = 0; jj < params.num_rows; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
-        cells_complete[ii + (jj + 64) * params.nx] = receive_section_buffer[ii + jj * params.nx];
+        cells_complete[ii + (jj + params.num_rows) * params.nx] = receive_section_buffer[ii + jj * params.nx];
       }
     }
   }
   else if (params.rank == 1) {
-    for (int jj = 0; jj < 64; jj++) {
+    for (int jj = 0; jj < params.num_rows; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
         send_section_buffer[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
       }
     }
-    MPI_Send(send_section_buffer, params.nx * 64 * 9, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
+    MPI_Send(send_section_buffer, params.nx * params.num_rows * 9, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
   }
 
   if (params.rank == MASTER) {

@@ -79,7 +79,6 @@ typedef struct {
   int index_start;
   int index_stop;
   int num_rows;
-  int num_rows_extended;
 } t_param;
 
 /* struct to hold the 'speed' values */
@@ -221,12 +220,12 @@ int main(int argc, char* argv[]) {
     MPI_Recv(receive_section_buffer, params.nx * 64 * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
     for (int jj = 0; jj < 64; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
-        cells_complete[ii + (jj + 64) * params.nx] = cells[ii + (jj + 1) * params.nx];
+        cells_complete[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
       }
     }
     for (int jj = 0; jj < 64; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
-        cells_complete[ii + jj * params.nx] = receive_section_buffer[ii + jj * params.nx];
+        cells_complete[ii + (jj + 64) * params.nx] = receive_section_buffer[ii + jj * params.nx];
       }
     }
   }
@@ -255,7 +254,7 @@ int main(int argc, char* argv[]) {
   tot_toc = col_toc;
   
   /* write final values and free memory */
-  if (params.rank == 0) {
+  if (params.rank == MASTER) {
     printf("==done==\n");
     printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells_complete, obstacles));
     printf("Elapsed Init time:\t\t\t%.6lf (s)\n", init_toc - init_tic);
@@ -277,7 +276,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
   float w2 = params.density * params.accel / 36.f;
 
   /* modify the 2nd row of the grid */
-  if (params.rank == 0) {
+  if (params.rank == 1) {
     int jj = 63;
 
     for (int ii = 0; ii < params.nx; ii++) {
@@ -423,7 +422,6 @@ void allocate_rows(t_param* params) {
     params->index_stop = params->index_start + minimum_rows;
   }
   params->num_rows = params->index_stop - params->index_start;
-  params->num_rows_extended = params->num_rows + 2;
 
   params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
   params->rank_down = (params->rank + 1) % params->size;
@@ -474,14 +472,13 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
   // Calculates the allocations for each rank
   allocate_rows(params);
-  printf("\nSize: %d", params->size);
-  printf("\nRank: %d", params->rank);
-  printf("\nRank up: %d", params->rank_up);
-  printf("\nRank down: %d", params->rank_down);
-  printf("\nIndex start: %d", params->index_start);
-  printf("\nIndex stop: %d", params->index_stop);
-  printf("\nNumber of rows: %d", params->num_rows);
-  printf("\nNumber of extended rows: %d\n", params->num_rows_extended);
+  // printf("\nSize: %d", params->size);
+  // printf("\nRank: %d", params->rank);
+  // printf("\nRank up: %d", params->rank_up);
+  // printf("\nRank down: %d", params->rank_down);
+  // printf("\nIndex start: %d", params->index_start);
+  // printf("\nIndex stop: %d", params->index_stop);
+  // printf("\nNumber of rows: %d", params->num_rows);
 
   /*
   ** Allocate memory.
@@ -522,7 +519,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   float w2 = params->density / 36.f;
 
   // #pragma omp parallel for schedule(static)
-  for (int jj = 0; jj < 66; jj++) {
+  for (int jj = 0; jj < params->num_rows + 2; jj++) {
     for (int ii = 0; ii < params->nx; ii++) {
       /* centre */
       (*cells_ptr)[ii + jj*params->nx].speeds[0] = w0;
@@ -541,7 +538,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
   /* first set all cells in obstacle array to zero */
   // #pragma omp parallel for schedule(static)
-  for (int jj = 0; jj < 64; jj++) {
+  for (int jj = 0; jj < params->num_rows; jj++) {
     for (int ii = 0; ii < params->nx; ii++) {
       (*obstacles_ptr)[ii + jj * params->nx] = 0;
     }
@@ -571,7 +568,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     if (blocked != 1) die("obstacle blocked value should be 1", __LINE__, __FILE__);
 
     /* assign to array */
-    if (params->rank == MASTER) {
+    if (params->rank == 1) {
       if (yy >= 64) {
         (*obstacles_ptr)[xx + (yy - 64) * params->nx] = blocked;
       }

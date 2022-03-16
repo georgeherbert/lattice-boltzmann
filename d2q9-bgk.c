@@ -79,6 +79,7 @@ typedef struct {
   int index_start;
   int index_stop;
   int num_rows;
+  int num_rows_extended;
 } t_param;
 
 /* struct to hold the 'speed' values */
@@ -349,6 +350,7 @@ void allocate_rows(t_param* params) {
     params->index_stop = params->index_start + minimum_rows;
   }
   params->num_rows = params->index_stop - params->index_start;
+  params->num_rows_extended = params->num_rows + 2;
 
   params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
   params->rank_down = (params->rank + 1) % params->size;
@@ -404,6 +406,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   printf("\nIndex start: %d", params->index_start);
   printf("\nIndex stop: %d", params->index_stop);
   printf("\nNumber of rows: %d\n", params->num_rows);
+  printf("\nNumber of extended rows: %d\n", params->num_rows_extended);
 
   /*
   ** Allocate memory.

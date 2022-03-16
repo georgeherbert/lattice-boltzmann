@@ -154,15 +154,6 @@ int main(int argc, char* argv[]) {
   init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels);
 
-  allocate_rows(&params);
-  // printf("\nSize: %d", params.size);
-  // printf("\nRank: %d", params.rank);
-  // printf("\nRank up: %d", params.rank_up);
-  // printf("\nRank down: %d", params.rank_down);
-  // printf("\nIndex start: %d", params.index_start);
-  // printf("\nIndex stop: %d", params.index_stop);
-  // printf("\nNumber of rows: %d\n", params.num_rows);
-
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -206,27 +197,6 @@ int main(int argc, char* argv[]) {
   MPI_Finalize();
 
   return EXIT_SUCCESS;
-}
-
-void allocate_rows(t_param* params) {
-  int minimum_rows = params->ny / params->size;
-  int remainder = params->ny % params->size;
-  if (params->rank < remainder) {
-    params->index_start = (minimum_rows + 1) * params->rank;
-    params->index_stop = params->index_start + minimum_rows + 1;
-  }
-  else if (params->rank == remainder) { 
-    params->index_start = (minimum_rows + 1) * params->rank;
-    params->index_stop = params->index_start + minimum_rows;
-  }
-  else {
-    params->index_start = remainder + minimum_rows * params->rank;
-    params->index_stop = params->index_start + minimum_rows;
-  }
-  params->num_rows = params->index_stop - params->index_start;
-
-  params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
-  params->rank_down = (params->rank + 1) % params->size;
 }
 
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
@@ -363,6 +333,27 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles) {
   return tot_u / (float)tot_cells;
 }
 
+void allocate_rows(t_param* params) {
+  int minimum_rows = params->ny / params->size;
+  int remainder = params->ny % params->size;
+  if (params->rank < remainder) {
+    params->index_start = (minimum_rows + 1) * params->rank;
+    params->index_stop = params->index_start + minimum_rows + 1;
+  }
+  else if (params->rank == remainder) { 
+    params->index_start = (minimum_rows + 1) * params->rank;
+    params->index_stop = params->index_start + minimum_rows;
+  }
+  else {
+    params->index_start = remainder + minimum_rows * params->rank;
+    params->index_stop = params->index_start + minimum_rows;
+  }
+  params->num_rows = params->index_stop - params->index_start;
+
+  params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
+  params->rank_down = (params->rank + 1) % params->size;
+}
+
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
   t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr) {
   char message[1024]; /* message buffer */
@@ -403,6 +394,16 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
   /* and close up the file */
   fclose(fp);
+
+  // Calculates the allocations for each rank
+  allocate_rows(params);
+  printf("\nSize: %d", params->size);
+  printf("\nRank: %d", params->rank);
+  printf("\nRank up: %d", params->rank_up);
+  printf("\nRank down: %d", params->rank_down);
+  printf("\nIndex start: %d", params->index_start);
+  printf("\nIndex stop: %d", params->index_stop);
+  printf("\nNumber of rows: %d\n", params->num_rows);
 
   /*
   ** Allocate memory.

@@ -93,7 +93,7 @@ typedef struct {
 
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
-  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr,
+  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr, float** av_vels_buffer,
   t_speed** send_row_buffer, t_speed** receive_row_buffer, 
   t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete);
 
@@ -107,7 +107,7 @@ int write_values(const t_param params, t_speed* cells, int* obstacles, float* av
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr,
-  int** obstacles_ptr, float** av_vels_ptr, t_speed** send_row_buffer, t_speed** receive_row_buffer,
+  int** obstacles_ptr, float** av_vels_ptr, float** av_vels_buffer, t_speed** send_row_buffer, t_speed** receive_row_buffer,
   t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete);
 
 /* Sum all the densities in the grid.
@@ -141,6 +141,7 @@ int main(int argc, char* argv[]) {
   t_speed* cells_complete = NULL;
   int* obstacles = NULL; /* grid indicating which cells are blocked */
   float* av_vels = NULL; /* a record of the av. velocity computed for each timestep */
+  float* av_vels_buffer = NULL;
   struct timeval timstr; /* structure to hold elapsed time */
   double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
   MPI_Status status;
@@ -163,7 +164,7 @@ int main(int argc, char* argv[]) {
   gettimeofday(&timstr, NULL);
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
-  initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels,
+  initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels, &av_vels_buffer,
     &send_row_buffer, &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_complete);
 
   /* Init time stops here, compute time starts*/
@@ -234,7 +235,17 @@ int main(int argc, char* argv[]) {
         send_section_buffer[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
       }
     }
-    MPI_Send(send_section_buffer, params.nx * 64 * 9, MPI_FLOAT, params.rank_up, tag, MPI_COMM_WORLD);
+    MPI_Send(send_section_buffer, params.nx * 64 * 9, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
+  }
+
+  if (params.rank == MASTER) {
+    MPI_Recv(av_vels_buffer, params.maxIters, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
+    for (int tt = 0; tt < params.maxIters; tt++) {
+      av_vels[tt] += av_vels_buffer[tt];
+    }
+  }
+  else if (params.rank == 1) {
+    MPI_Send(av_vels, params.maxIters, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
   }
 
   /* Total/collate time stops here.*/
@@ -252,7 +263,7 @@ int main(int argc, char* argv[]) {
     printf("Elapsed Total time:\t\t\t%.6lf (s)\n", tot_toc  - tot_tic);
     write_values(params, cells_complete, obstacles, av_vels);
   }
-  finalise(&params, &cells, &cells_new, &obstacles, &av_vels, &send_row_buffer,
+  finalise(&params, &cells, &cells_new, &obstacles, &av_vels, &av_vels_buffer, &send_row_buffer, 
     &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_complete);
   MPI_Finalize();
 
@@ -426,7 +437,7 @@ void allocate_rows(t_param* params) {
 }
 
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
-  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr,
+  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr, float** av_vels_buffer,
   t_speed** send_row_buffer, t_speed** receive_row_buffer,
   t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete) {
   char message[1024]; /* message buffer */
@@ -572,6 +583,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   ** at each timestep
   */
   *av_vels_ptr = (float*)malloc(sizeof(float) * params->maxIters);
+  *av_vels_buffer = (float*)malloc(sizeof(float) * params->maxIters);
 
   *send_row_buffer = malloc(sizeof(t_speed) * params->nx);
   *receive_row_buffer  = malloc(sizeof(t_speed) * params->nx);
@@ -584,7 +596,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 }
 
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr,
-  int** obstacles_ptr, float** av_vels_ptr, t_speed** send_row_buffer, t_speed** receive_row_buffer,
+  int** obstacles_ptr, float** av_vels_ptr, float** av_vels_buffer, t_speed** send_row_buffer, t_speed** receive_row_buffer,
   t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete) {
   /*
   ** free up allocated memory
@@ -600,6 +612,9 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
 
   free(*av_vels_ptr);
   *av_vels_ptr = NULL;
+
+  free(*av_vels_buffer);
+  *av_vels_buffer = NULL;
 
   free(*send_row_buffer);
   *send_row_buffer = NULL;

@@ -92,8 +92,10 @@ typedef struct {
 */
 
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
-int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
-  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr);
+int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
+  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr,
+  t_speed** send_row_buffer, t_speed** receive_row_buffer, 
+  t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete);
 
 /* allocates rows to the different processors */
 void allocate_rows(t_param* params);
@@ -105,7 +107,8 @@ int write_values(const t_param params, t_speed* cells, int* obstacles, float* av
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr,
-  int** obstacles_ptr, float** av_vels_ptr);
+  int** obstacles_ptr, float** av_vels_ptr, t_speed** send_row_buffer, t_speed** receive_row_buffer,
+  t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete);
 
 /* Sum all the densities in the grid.
 ** The total should remain constant from one timestep to the next. */
@@ -131,6 +134,11 @@ int main(int argc, char* argv[]) {
   t_param params; /* struct to hold parameter values */
   t_speed* cells = NULL; /* grid containing fluid densities */
   t_speed* cells_new = NULL; /* scratch space */
+  t_speed* send_row_buffer = NULL;
+  t_speed* receive_row_buffer = NULL;
+  t_speed* send_section_buffer = NULL;
+  t_speed* receive_section_buffer = NULL;
+  t_speed* cells_complete = NULL;
   int* obstacles = NULL; /* grid indicating which cells are blocked */
   float* av_vels = NULL; /* a record of the av. velocity computed for each timestep */
   struct timeval timstr; /* structure to hold elapsed time */
@@ -155,15 +163,13 @@ int main(int argc, char* argv[]) {
   gettimeofday(&timstr, NULL);
   tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_tic=tot_tic;
-  initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels);
+  initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &av_vels,
+    &send_row_buffer, &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_complete);
 
   /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
   init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   comp_tic = init_toc;
-
-  t_speed* sendbuf = malloc(sizeof(t_speed) * params.nx);
-  t_speed* recvbuf = malloc(sizeof(t_speed) * params.nx);
 
   for (int tt = 0; tt < params.maxIters; tt++) {
     accelerate_flow(params, cells, obstacles);
@@ -174,26 +180,26 @@ int main(int argc, char* argv[]) {
 
     // Send down receive up
     for (int ii = 0; ii < params.nx; ii++) {
-      sendbuf[ii] = cells[ii + params.nx];
+      send_row_buffer[ii] = cells[ii + params.nx];
     }
     MPI_Sendrecv(
-      sendbuf, params.nx * 9, MPI_FLOAT, params.rank_down, tag, 
-      recvbuf, params.nx * 9, MPI_FLOAT, params.rank_up, tag,
+      send_row_buffer, params.nx * 9, MPI_FLOAT, params.rank_down, tag, 
+      receive_row_buffer, params.nx * 9, MPI_FLOAT, params.rank_up, tag,
       MPI_COMM_WORLD, &status);
     for (int ii = 0; ii < params.nx; ii++) {
-      cells[ii + params.nx * 65] = recvbuf[ii];
+      cells[ii + params.nx * 65] = receive_row_buffer[ii];
     }
 
     // Send up receive down
     for (int ii = 0; ii < params.nx; ii++) {
-      sendbuf[ii] = cells[ii + params.nx * 64];
+      send_row_buffer[ii] = cells[ii + params.nx * 64];
     }
     MPI_Sendrecv(
-      sendbuf, params.nx * 9, MPI_FLOAT, params.rank_up, tag, 
-      recvbuf, params.nx * 9, MPI_FLOAT, params.rank_down, tag,
+      send_row_buffer, params.nx * 9, MPI_FLOAT, params.rank_up, tag, 
+      receive_row_buffer, params.nx * 9, MPI_FLOAT, params.rank_down, tag,
       MPI_COMM_WORLD, &status);
     for (int ii = 0; ii < params.nx; ii++) {
-      cells[ii] = recvbuf[ii];
+      cells[ii] = receive_row_buffer[ii];
     }
 
 #ifdef DEBUG
@@ -209,14 +215,8 @@ int main(int argc, char* argv[]) {
   col_tic=comp_toc;
 
   // Collate data from ranks here
-  free(sendbuf);
-  free(recvbuf);
-  sendbuf = malloc(sizeof(t_speed) * params.nx * 64);
-  recvbuf = malloc(sizeof(t_speed) * params.nx * 64);
-  t_speed* cells_complete = malloc(sizeof(t_speed) * params.nx * params.ny);
-
   if (params.rank == 0) {
-    MPI_Recv(recvbuf, params.nx * 64 * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
+    MPI_Recv(receive_section_buffer, params.nx * 64 * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
     for (int jj = 0; jj < 64; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
         cells_complete[ii + (jj + 64) * params.nx] = cells[ii + (jj + 1) * params.nx];
@@ -224,17 +224,17 @@ int main(int argc, char* argv[]) {
     }
     for (int jj = 0; jj < 64; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
-        cells_complete[ii + jj * params.nx] = recvbuf[ii + jj * params.nx];
+        cells_complete[ii + jj * params.nx] = receive_section_buffer[ii + jj * params.nx];
       }
     }
   }
   else if (params.rank == 1) {
     for (int jj = 0; jj < 64; jj++) {
       for (int ii = 0; ii < params.nx; ii++) {
-        sendbuf[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
+        send_section_buffer[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
       }
     }
-    MPI_Send(sendbuf, params.nx * 64 * 9, MPI_FLOAT, params.rank_up, tag, MPI_COMM_WORLD);
+    MPI_Send(send_section_buffer, params.nx * 64 * 9, MPI_FLOAT, params.rank_up, tag, MPI_COMM_WORLD);
   }
 
   /* Total/collate time stops here.*/
@@ -252,11 +252,8 @@ int main(int argc, char* argv[]) {
     printf("Elapsed Total time:\t\t\t%.6lf (s)\n", tot_toc  - tot_tic);
     write_values(params, cells_complete, obstacles, av_vels);
   }
-  finalise(&params, &cells, &cells_new, &obstacles, &av_vels);
-  free(sendbuf);
-  free(recvbuf);
-  free(cells_complete);
-
+  finalise(&params, &cells, &cells_new, &obstacles, &av_vels, &send_row_buffer,
+    &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_complete);
   MPI_Finalize();
 
   return EXIT_SUCCESS;
@@ -429,7 +426,9 @@ void allocate_rows(t_param* params) {
 }
 
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
-  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr) {
+  t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, float** av_vels_ptr,
+  t_speed** send_row_buffer, t_speed** receive_row_buffer,
+  t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete) {
   char message[1024]; /* message buffer */
   FILE* fp; /* file pointer */
   int xx, yy; /* generic array indices */
@@ -574,11 +573,19 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
   */
   *av_vels_ptr = (float*)malloc(sizeof(float) * params->maxIters);
 
+  *send_row_buffer = malloc(sizeof(t_speed) * params->nx);
+  *receive_row_buffer  = malloc(sizeof(t_speed) * params->nx);
+
+  *send_section_buffer = malloc(sizeof(t_speed) * params->nx * 64);
+  *receive_section_buffer = malloc(sizeof(t_speed) * params->nx * 64);
+  *cells_complete = malloc(sizeof(t_speed) * params->nx * params->ny);
+
   return EXIT_SUCCESS;
 }
 
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr,
-  int** obstacles_ptr, float** av_vels_ptr) {
+  int** obstacles_ptr, float** av_vels_ptr, t_speed** send_row_buffer, t_speed** receive_row_buffer,
+  t_speed** send_section_buffer, t_speed** receive_section_buffer, t_speed** cells_complete) {
   /*
   ** free up allocated memory
   */
@@ -593,6 +600,21 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
 
   free(*av_vels_ptr);
   *av_vels_ptr = NULL;
+
+  free(*send_row_buffer);
+  *send_row_buffer = NULL;
+
+  free(*receive_row_buffer);
+  *receive_row_buffer = NULL;
+
+  free(*send_section_buffer);
+  *send_section_buffer = NULL;
+
+  free(*receive_section_buffer);
+  *receive_section_buffer = NULL;
+
+  free(*cells_complete);
+  *cells_complete = NULL;
 
   return EXIT_SUCCESS;
 }

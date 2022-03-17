@@ -668,19 +668,19 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr,
     int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_buffer, float** send_row_buffer, float** receive_row_buffer,
     float** send_section_buffer, float** receive_section_buffer, t_speed** cells_complete) {
-    // _mm_free(*cells_ptr); *cells_ptr = NULL;
-    // _mm_free(*cells_new_ptr); *cells_new_ptr = NULL;
-    // _mm_free(*obstacles_ptr); *obstacles_ptr = NULL;
-    // _mm_free(*obstacles_output); *obstacles_output = NULL;
-    // free(*av_vels_ptr); *av_vels_ptr = NULL;
-    // free(*av_vels_buffer); *av_vels_buffer = NULL;
-    // free(*send_row_buffer); *send_row_buffer = NULL;
-    // free(*receive_row_buffer); *receive_row_buffer = NULL;
-    // free(*send_section_buffer); *send_section_buffer = NULL;
-    // free(*receive_section_buffer); *receive_section_buffer = NULL;
-    // free(*cells_complete); *cells_complete = NULL;
-    // free(params->num_rows_per_rank);
-    // free(params->index_start_per_rank);
+    _mm_free(*cells_ptr); *cells_ptr = NULL;
+    _mm_free(*cells_new_ptr); *cells_new_ptr = NULL;
+    _mm_free(*cells_complete); *cells_complete = NULL;
+    _mm_free(*obstacles_ptr); *obstacles_ptr = NULL;
+    _mm_free(*obstacles_output); *obstacles_output = NULL;
+    free(*av_vels_ptr); *av_vels_ptr = NULL;
+    free(*av_vels_buffer); *av_vels_buffer = NULL;
+    free(*send_row_buffer); *send_row_buffer = NULL;
+    free(*receive_row_buffer); *receive_row_buffer = NULL;
+    free(*send_section_buffer); *send_section_buffer = NULL;
+    free(*receive_section_buffer); *receive_section_buffer = NULL;
+    free(params->num_rows_per_rank);
+    free(params->index_start_per_rank);
     return EXIT_SUCCESS;
 }
 

@@ -218,19 +218,21 @@ int main(int argc, char* argv[]) {
 
     // Collate data from ranks here
     if (params.rank == MASTER) {
-        MPI_Recv(receive_section_buffer, params.nx * params.num_rows * 9, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
-        for (int jj = 0; jj < params.num_rows; jj++) {
-            for (int ii = 0; ii < params.nx; ii++) {
-                cells_complete[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
+        for (int rr = 1; rr < params.size; rr++) {
+            MPI_Recv(receive_section_buffer, params.nx * params.num_rows * 9, MPI_FLOAT, rr, tag, MPI_COMM_WORLD, &status);
+            for (int jj = 0; jj < params.num_rows; jj++) {
+                for (int ii = 0; ii < params.nx; ii++) {
+                    cells_complete[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
+                }
             }
-        }
-        for (int jj = 0; jj < params.num_rows; jj++) {
-            for (int ii = 0; ii < params.nx; ii++) {
-                cells_complete[ii + (jj + params.num_rows) * params.nx] = receive_section_buffer[ii + jj * params.nx];
+            for (int jj = 0; jj < params.num_rows; jj++) {
+                for (int ii = 0; ii < params.nx; ii++) {
+                    cells_complete[ii + (jj + (params.num_rows * rr)) * params.nx] = receive_section_buffer[ii + jj * params.nx];
+                }
             }
         }
     }
-    else if (params.rank == 1) {
+    else {
         for (int jj = 0; jj < params.num_rows; jj++) {
             for (int ii = 0; ii < params.nx; ii++) {
                 send_section_buffer[ii + jj * params.nx] = cells[ii + (jj + 1) * params.nx];
@@ -240,14 +242,21 @@ int main(int argc, char* argv[]) {
     }
 
     if (params.rank == MASTER) {
-        MPI_Recv(av_vels_buffer, params.maxIters, MPI_FLOAT, params.rank_down, tag, MPI_COMM_WORLD, &status);
+        for (int rr = 1; rr < params.size; rr++) {
+            MPI_Recv(av_vels_buffer, params.maxIters, MPI_FLOAT, rr, tag, MPI_COMM_WORLD, &status);
+            for (int tt = 0; tt < params.maxIters; tt++) {
+                av_vels[tt] += av_vels_buffer[tt];
+            }
+        }
         for (int tt = 0; tt < params.maxIters; tt++) {
-            av_vels[tt] += av_vels_buffer[tt];
+            av_vels[tt] *= params.num_non_obstacles_r;
         }
     }
-    else if (params.rank == 1) {
+    else {
         MPI_Send(av_vels, params.maxIters, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
     }
+
+
 
     /* Total/collate time stops here.*/
     gettimeofday(&timstr, NULL);
@@ -257,7 +266,7 @@ int main(int argc, char* argv[]) {
     /* write final values and free memory */
     if (params.rank == MASTER) {
         printf("==done==\n");
-        printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells_complete, obstacles));
+        printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells_complete, obstacles_output));
         printf("Elapsed Init time:\t\t\t%.6lf (s)\n", init_toc - init_tic);
         printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_toc - comp_tic);
         printf("Elapsed Collate time:\t\t\t%.6lf (s)\n", col_toc    - col_tic);
@@ -282,7 +291,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles) {
     for (int ii = 0; ii < params.nx; ii++) {
         /* if the cell is not occupied and
         ** we don't send a negative density */
-        if (!obstacles[ii + 62 * params.nx]
+        if (!obstacles[ii + (params.num_rows - 2) * params.nx]
             && (cells[ii + jj*params.nx].speeds[3] - w1) > 0.f
             && (cells[ii + jj*params.nx].speeds[6] - w2) > 0.f
             && (cells[ii + jj*params.nx].speeds[7] - w2) > 0.f) {
@@ -362,7 +371,7 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
             }
         }
     }
-    return tot_u * params.num_non_obstacles_r;
+    return tot_u;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles) {
@@ -422,8 +431,8 @@ void allocate_rows(t_param* params) {
     }
     params->rank_accelerate = (params->ny - 2 >= params->index_start && params->ny - 2 < params->index_stop);
     params->num_rows = params->index_stop - params->index_start;
-    params->rank_up = ((params->rank - 1) % params->size + params->size) % params->size;
-    params->rank_down = (params->rank + 1) % params->size;
+    params->rank_up = (params->rank + 1) % params->size;
+    params->rank_down = ((params->rank - 1) % params->size + params->size) % params->size;
 }
 
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, 
@@ -471,13 +480,13 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
     // Calculates the allocations for each rank
     allocate_rows(params);
-    // printf("\nSize: %d", params->size);
-    // printf("\nRank: %d", params->rank);
-    // printf("\nRank up: %d", params->rank_up);
-    // printf("\nRank down: %d", params->rank_down);
-    // printf("\nIndex start: %d", params->index_start);
-    // printf("\nIndex stop: %d", params->index_stop);
-    // printf("\nNumber of rows: %d", params->num_rows);
+    printf("\nSize: %d", params->size);
+    printf("\nRank: %d", params->rank);
+    printf("\nRank up: %d", params->rank_up);
+    printf("\nRank down: %d", params->rank_down);
+    printf("\nIndex start: %d", params->index_start);
+    printf("\nIndex stop: %d", params->index_stop);
+    printf("\nNumber of rows: %d\n\n", params->num_rows);
 
     /*
     ** Allocate memory.

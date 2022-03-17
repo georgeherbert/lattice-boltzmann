@@ -425,15 +425,6 @@ void collate(const t_param* params, t_speed* cells, t_speed* cells_complete, flo
                     cells_complete->speeds_6[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 6 + jj * (params->nx * 9)];
                     cells_complete->speeds_7[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 7 + jj * (params->nx * 9)];
                     cells_complete->speeds_8[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 8 + jj * (params->nx * 9)];
-                    // cells_complete->speeds_0[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_0[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_1[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_1[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_2[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_2[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_3[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_3[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_4[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_4[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_5[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_5[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_6[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_6[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_7[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_7[ii + (jj + 1) * params->nx];
-                    // cells_complete->speeds_8[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = cells->speeds_8[ii + (jj + 1) * params->nx];
                 }
             }
         }

@@ -260,6 +260,7 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
     float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
     /* loop over the cells in the grid */
+    #pragma omp parallel for reduction(+:tot_u)
     for (int jj = 1; jj < params.num_rows + 1; jj++) {
         /* determine indices of north and south axis-direction neighbours 
         ** respecting periodic boundary conditions (wrap around) */
@@ -468,13 +469,13 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     params->num_rows_per_rank = malloc(sizeof(int) * params->size);
     params->index_start_per_rank = malloc(sizeof(int) * params->size);
     allocate_rows(params);
-    printf("\nSize: %d", params->size);
-    printf("\nRank: %d", params->rank);
-    printf("\nRank up: %d", params->rank_up);
-    printf("\nRank down: %d", params->rank_down);
-    printf("\nIndex start: %d", params->index_start);
-    printf("\nIndex stop: %d", params->index_stop);
-    printf("\nNumber of rows: %d\n\n", params->num_rows);
+    // printf("\nSize: %d", params->size);
+    // printf("\nRank: %d", params->rank);
+    // printf("\nRank up: %d", params->rank_up);
+    // printf("\nRank down: %d", params->rank_down);
+    // printf("\nIndex start: %d", params->index_start);
+    // printf("\nIndex stop: %d", params->index_stop);
+    // printf("\nNumber of rows: %d\n\n", params->num_rows);
 
     /* main grid */
     *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * ((params->num_rows + 2) * params->nx));

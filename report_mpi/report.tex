@@ -1,0 +1,35 @@
+\documentclass[twocolumn, a4paper]{article}
+\usepackage[a4paper, left = 1.75cm, right = 1.75cm, top = 1.75cm, bottom = 1.75cm]{geometry}
+\usepackage[style = numeric, sorting = none]{biblatex}
+\usepackage{pgfplots}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage[UKenglish]{babel}
+\usepackage[UKenglish]{isodate}
+
+\graphicspath{{./images/}}
+\addbibresource{refs.bib}
+
+\cleanlookdateon
+
+\renewcommand*{\bibfont}{\footnotesize}
+
+\author{
+  George Herbert\\
+  \texttt{cj19328@bristol.ac.uk}
+}
+
+\title{\vspace{-2em}Parallelising d2q9-bgk.c with MPI}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
+    This report analyses the techniques I utilised to further parallelise \texttt{d2q9-bgk.c} with MPI.
+\end{abstract}
+
+\printbibliography
+
+\end{document}

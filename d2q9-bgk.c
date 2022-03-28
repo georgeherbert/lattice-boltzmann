@@ -398,26 +398,25 @@ void halo_exchange(const t_param* params, t_speed* cells, float* send_row_buffer
         cells->speeds_7[ii] = receive_row_buffer[ii * 9 + 7];
         cells->speeds_8[ii] = receive_row_buffer[ii * 9 + 8];
     }
-
 }
 
 void collate(const t_param* params, t_speed* cells, t_speed* cells_complete, float* send_section_buffer, float* receive_section_buffer, float* av_vels, float* av_vels_buffer, const int tag, MPI_Status* status) {
     if (params->rank == MASTER) {
         cells->speeds_0[0] = 0.f;
-        for (int rr = 1; rr < params->size; rr++) {
-            for (int jj = 0; jj < params->num_rows; jj++) {
-                for (int ii = 0; ii < params->nx; ii++) {
-                    cells_complete->speeds_0[ii + jj * params->nx] = cells->speeds_0[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_1[ii + jj * params->nx] = cells->speeds_1[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_2[ii + jj * params->nx] = cells->speeds_2[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_3[ii + jj * params->nx] = cells->speeds_3[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_4[ii + jj * params->nx] = cells->speeds_4[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_5[ii + jj * params->nx] = cells->speeds_5[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_6[ii + jj * params->nx] = cells->speeds_6[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_7[ii + jj * params->nx] = cells->speeds_7[ii + (jj + 1) * params->nx];
-                    cells_complete->speeds_8[ii + jj * params->nx] = cells->speeds_8[ii + (jj + 1) * params->nx];
-                }
+        for (int jj = 0; jj < params->num_rows; jj++) {
+            for (int ii = 0; ii < params->nx; ii++) {
+                cells_complete->speeds_0[ii + jj * params->nx] = cells->speeds_0[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_1[ii + jj * params->nx] = cells->speeds_1[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_2[ii + jj * params->nx] = cells->speeds_2[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_3[ii + jj * params->nx] = cells->speeds_3[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_4[ii + jj * params->nx] = cells->speeds_4[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_5[ii + jj * params->nx] = cells->speeds_5[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_6[ii + jj * params->nx] = cells->speeds_6[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_7[ii + jj * params->nx] = cells->speeds_7[ii + (jj + 1) * params->nx];
+                cells_complete->speeds_8[ii + jj * params->nx] = cells->speeds_8[ii + (jj + 1) * params->nx];
             }
+        }
+        for (int rr = 1; rr < params->size; rr++) {
             MPI_Recv(receive_section_buffer, params->nx * params->num_rows_per_rank[rr] * 9, MPI_FLOAT, rr, tag, MPI_COMM_WORLD, status);
 
             for (int jj = 0; jj < params->num_rows_per_rank[rr]; jj++) {

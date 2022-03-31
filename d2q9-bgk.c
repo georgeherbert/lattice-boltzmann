@@ -574,8 +574,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
     *av_vels_ptr = (float*)malloc(sizeof(float) * params->maxIters);
 
+    // OpenCL setup
     cl_int err;
-
     ocl->device = selectOpenCLDevice();
 
     // Create OpenCL context
@@ -602,8 +602,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     fclose(fp);
 
     // Create OpenCL program
-    ocl->program = clCreateProgramWithSource(
-        ocl->context, 1, (const char**)&ocl_src, NULL, &err);
+    ocl->program = clCreateProgramWithSource(ocl->context, 1, (const char**)&ocl_src, NULL, &err);
     free(ocl_src);
     checkError(err, "creating program", __LINE__);
 
@@ -611,13 +610,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     err = clBuildProgram(ocl->program, 1, &ocl->device, "", NULL, NULL);
     if (err == CL_BUILD_PROGRAM_FAILURE) {
         size_t sz;
-        clGetProgramBuildInfo(
-            ocl->program, ocl->device,
-            CL_PROGRAM_BUILD_LOG, 0, NULL, &sz);
+        clGetProgramBuildInfo(ocl->program, ocl->device, CL_PROGRAM_BUILD_LOG, 0, NULL, &sz);
         char *buildlog = malloc(sz);
-        clGetProgramBuildInfo(
-            ocl->program, ocl->device,
-            CL_PROGRAM_BUILD_LOG, sz, buildlog, NULL);
+        clGetProgramBuildInfo(ocl->program, ocl->device, CL_PROGRAM_BUILD_LOG, sz, buildlog, NULL);
         fprintf(stderr, "\nOpenCL build log:\n\n%s\n", buildlog);
         free(buildlog);
     }
@@ -630,17 +625,11 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     checkError(err, "creating propagate kernel", __LINE__);
 
     // Allocate OpenCL buffers
-    ocl->cells = clCreateBuffer(
-        ocl->context, CL_MEM_READ_WRITE,
-        sizeof(t_speed) * params->nx * params->ny, NULL, &err);
+    ocl->cells = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(t_speed) * params->nx * params->ny, NULL, &err);
     checkError(err, "creating cells buffer", __LINE__);
-    ocl->tmp_cells = clCreateBuffer(
-        ocl->context, CL_MEM_READ_WRITE,
-        sizeof(t_speed) * params->nx * params->ny, NULL, &err);
+    ocl->tmp_cells = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(t_speed) * params->nx * params->ny, NULL, &err);
     checkError(err, "creating tmp_cells buffer", __LINE__);
-    ocl->obstacles = clCreateBuffer(
-        ocl->context, CL_MEM_READ_WRITE,
-        sizeof(cl_int) * params->nx * params->ny, NULL, &err);
+    ocl->obstacles = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_int) * params->nx * params->ny, NULL, &err);
     checkError(err, "creating obstacles buffer", __LINE__);
 
     return EXIT_SUCCESS;
@@ -663,7 +652,6 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr
 
     return EXIT_SUCCESS;
 }
-
 
 float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl) {
     const float viscosity = 1.f / 6.f * (2.f / params.omega - 1.f);

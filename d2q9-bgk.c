@@ -276,11 +276,11 @@ int timestep_2(const t_param params, t_speed* cells, t_speed* cells_new, t_ocl o
     checkError(err, "setting timestep arg 1", __LINE__);
     err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.obstacles);
     checkError(err, "setting timestep arg 2", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_mem), &params.nx);
+    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_int), &params.nx);
     checkError(err, "setting timestep arg 3", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &params.ny);
+    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_int), &params.ny);
     checkError(err, "setting timestep arg 4", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_mem), &params.omega);
+    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_float), &params.omega);
     checkError(err, "setting timestep arg 5", __LINE__);
 
     size_t global[2] = {params.nx, params.ny};
@@ -288,7 +288,7 @@ int timestep_2(const t_param params, t_speed* cells, t_speed* cells_new, t_ocl o
     checkError(err, "enqueueing timestep kernel", __LINE__);
 
     err = clFinish(ocl.queue);
-    checkError(err, "waiting for propagate kernel", __LINE__);
+    checkError(err, "waiting for timestep kernel", __LINE__);
 
     return EXIT_SUCCESS;
 }

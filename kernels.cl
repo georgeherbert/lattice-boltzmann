@@ -36,32 +36,6 @@ kernel void accelerate_flow(global t_speed* cells, global int* obstacles, int nx
     }
 }
 
-kernel void propagate(global t_speed* cells, global t_speed* tmp_cells, global int* obstacles, int nx, int ny) {
-    /* get column and row indices */
-    int ii = get_global_id(0);
-    int jj = get_global_id(1);
-
-    /* determine indices of axis-direction neighbours
-    ** respecting periodic boundary conditions (wrap around) */
-    int y_n = (jj + 1) % ny;
-    int x_e = (ii + 1) % nx;
-    int y_s = (jj == 0) ? (jj + ny - 1) : (jj - 1);
-    int x_w = (ii == 0) ? (ii + nx - 1) : (ii - 1);
-
-    /* propagate densities from neighbouring cells, following
-    ** appropriate directions of travel and writing into
-    ** scratch space grid */
-    tmp_cells[ii + jj*nx].speeds[0] = cells[ii + jj*nx].speeds[0]; /* central cell, no movement */
-    tmp_cells[ii + jj*nx].speeds[1] = cells[x_w + jj*nx].speeds[1]; /* east */
-    tmp_cells[ii + jj*nx].speeds[2] = cells[ii + y_s*nx].speeds[2]; /* north */
-    tmp_cells[ii + jj*nx].speeds[3] = cells[x_e + jj*nx].speeds[3]; /* west */
-    tmp_cells[ii + jj*nx].speeds[4] = cells[ii + y_n*nx].speeds[4]; /* south */
-    tmp_cells[ii + jj*nx].speeds[5] = cells[x_w + y_s*nx].speeds[5]; /* north-east */
-    tmp_cells[ii + jj*nx].speeds[6] = cells[x_e + y_s*nx].speeds[6]; /* north-west */
-    tmp_cells[ii + jj*nx].speeds[7] = cells[x_e + y_n*nx].speeds[7]; /* south-west */
-    tmp_cells[ii + jj*nx].speeds[8] = cells[x_w + y_n*nx].speeds[8]; /* south-east */
-}
-
 kernel void timestep(global t_speed* cells, global t_speed* cells_new, global int* obstacles, int nx, int ny, float omega) {
     const float c_sq_r = 3.f;
     const float two_c_sq_r = 1.5f;

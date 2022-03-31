@@ -180,15 +180,11 @@ int main(int argc, char* argv[]) {
     comp_tic=init_toc;
 
     // Write cells to OpenCL buffer
-    err = clEnqueueWriteBuffer(
-        ocl.queue, ocl.cells, CL_TRUE, 0,
-        sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells, CL_TRUE, 0, sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
     checkError(err, "writing cells data", __LINE__);
 
     // Write obstacles to OpenCL buffer
-    err = clEnqueueWriteBuffer(
-        ocl.queue, ocl.obstacles, CL_TRUE, 0,
-        sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
 
     for (int tt = 0; tt < params.maxIters; tt++)
@@ -231,18 +227,14 @@ int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obst
     cl_int err;
 
     // Write cells to device
-    err = clEnqueueWriteBuffer(
-        ocl.queue, ocl.cells, CL_TRUE, 0,
-        sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells, CL_TRUE, 0, sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
     checkError(err, "writing cells data", __LINE__);
 
     accelerate_flow(params, cells, obstacles, ocl);
     propagate(params, cells, tmp_cells, ocl);
 
     // Read tmp_cells from device
-    err = clEnqueueReadBuffer(
-        ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
-        sizeof(t_speed) * params.nx * params.ny, tmp_cells, 0, NULL, NULL);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.tmp_cells, CL_TRUE, 0, sizeof(t_speed) * params.nx * params.ny, tmp_cells, 0, NULL, NULL);
     checkError(err, "reading tmp_cells data", __LINE__);
 
     rebound(params, cells, tmp_cells, obstacles, ocl);
@@ -269,8 +261,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl 
 
     // Enqueue kernel
     size_t global[1] = {params.nx};
-    err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow,
-                                                             1, NULL, global, NULL, 0, NULL, NULL);
+    err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow, 1, NULL, global, NULL, 0, NULL, NULL);
     checkError(err, "enqueueing accelerate_flow kernel", __LINE__);
 
     // Wait for kernel to finish
@@ -297,8 +288,7 @@ int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl oc
 
     // Enqueue kernel
     size_t global[2] = {params.nx, params.ny};
-    err = clEnqueueNDRangeKernel(ocl.queue, ocl.propagate,
-                                                             2, NULL, global, NULL, 0, NULL, NULL);
+    err = clEnqueueNDRangeKernel(ocl.queue, ocl.propagate, 2, NULL, global, NULL, 0, NULL, NULL);
     checkError(err, "enqueueing propagate kernel", __LINE__);
 
     // Wait for kernel to finish

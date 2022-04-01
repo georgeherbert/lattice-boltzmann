@@ -177,7 +177,7 @@ int main(int argc, char* argv[]) {
     /* Init time stops here, compute time starts*/
     gettimeofday(&timstr, NULL);
     init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
-    comp_tic=init_toc;
+    comp_tic = init_toc;
 
     // Write cells to OpenCL buffer
     err = clEnqueueWriteBuffer(ocl.queue, ocl.cells, CL_TRUE, 0, sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
@@ -186,6 +186,19 @@ int main(int argc, char* argv[]) {
     // Write obstacles to OpenCL buffer
     err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
+
+    err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 1", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 2", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &params.ny); checkError(err, "setting accelerate_flow arg 3", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_float), &params.density); checkError(err, "setting accelerate_flow arg 4", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_float), &params.accel); checkError(err, "setting accelerate_flow arg 5", __LINE__);
+
+    err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 2", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 3", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 4", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 5", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 6", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 7", __LINE__);
 
     for (int tt = 0; tt < params.maxIters; tt++) {
         av_vels[tt] = timestep(params, cells, cells_new, obstacles, ocl);
@@ -232,31 +245,17 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
 
     // Accelerate flow
     err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 1", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 2", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &params.ny); checkError(err, "setting accelerate_flow arg 3", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_float), &params.density); checkError(err, "setting accelerate_flow arg 4", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_float), &params.accel); checkError(err, "setting accelerate_flow arg 5", __LINE__);
-
     size_t global_accelerate_flow[1] = {params.nx};
     err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow, 1, NULL, global_accelerate_flow, NULL, 0, NULL, NULL); checkError(err, "enqueueing accelerate_flow kernel", __LINE__);
-    err = clFinish(ocl.queue); checkError(err, "waiting for accelerate_flow kernel", __LINE__);
+    // err = clFinish(ocl.queue); checkError(err, "waiting for accelerate_flow kernel", __LINE__);
 
     // Timestep
     err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem), &ocl.cells_new); checkError(err, "setting timestep arg 1", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 2", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 3", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 4", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 5", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 6", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 7", __LINE__);
-
+    err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem ), &ocl.cells_new); checkError(err, "setting timestep arg 1", __LINE__);
     size_t global_timestep[2] = {params.nx, params.ny};
     size_t local_timestep[2] = {NX_LOCAL, NY_LOCAL};
     err = clEnqueueNDRangeKernel(ocl.queue, ocl.timestep, 2, NULL, global_timestep, local_timestep, 0, NULL, NULL); checkError(err, "enqueueing timestep kernel", __LINE__);
-    err = clFinish(ocl.queue); checkError(err, "waiting for timestep kernel", __LINE__);
-
+    // err = clFinish(ocl.queue); checkError(err, "waiting for timestep kernel", __LINE__);
     float* local_sum = malloc(sizeof(float) * ((params.nx * params.ny) / (NX_LOCAL * NY_LOCAL)));
     err = clEnqueueReadBuffer(ocl.queue, ocl.av_vels_global, CL_TRUE, 0, sizeof(float) * ((params.nx * params.ny) / (NX_LOCAL * NY_LOCAL)), local_sum, 0, NULL, NULL); checkError(err, "Reading back av_vels_global", __LINE__);
 

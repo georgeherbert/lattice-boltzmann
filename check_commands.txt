@@ -1,8 +1,5 @@
-make check REF_AV_VELS_FILE=check/128x256.av_vels.dat 
-REF_FINAL_STATE_FILE=check/128x256.final_state.dat
+make check REF_AV_VELS_FILE=check/128x256.av_vels.dat REF_FINAL_STATE_FILE=check/128x256.final_state.dat
 
-make check REF_AV_VELS_FILE=check/256x256.av_vels.dat 
-REF_FINAL_STATE_FILE=check/256x256.final_state.dat
+make check REF_AV_VELS_FILE=check/256x256.av_vels.dat REF_FINAL_STATE_FILE=check/256x256.final_state.dat
 
-make check REF_AV_VELS_FILE=check/1024x1024.av_vels.dat 
-REF_FINAL_STATE_FILE=check/1024x1024.final_state.dat
+make check REF_AV_VELS_FILE=check/1024x1024.av_vels.dat REF_FINAL_STATE_FILE=check/1024x1024.final_state.dat

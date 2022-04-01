@@ -91,23 +91,30 @@ __kernel void timestep(
     cells_new[ii + jj * nx].speeds[7] = obstacles[ii + jj * nx] ? cells[x_w + y_s * nx].speeds[5] : cells[x_e + y_n * nx].speeds[7] + omega * (w2 * local_density * (1.f + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells[x_e + y_n * nx].speeds[7]);
     cells_new[ii + jj * nx].speeds[8] = obstacles[ii + jj * nx] ? cells[x_e + y_s * nx].speeds[6] : cells[x_w + y_n * nx].speeds[8] + omega * (w2 * local_density * (1.f + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells[x_w + y_n * nx].speeds[8]);
 
-    int num_work_items = get_local_size(0);
-    int local_id = get_local_id(0);
-    int group_id = get_group_id(0);
+    int ny_local = get_local_size(0);
+    int nx_local = get_local_size(1);
+    int y_local_id = get_local_id(0);
+    int x_local_id = get_local_id(1);
 
-    av_vels_local[local_id] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
-    // printf("%f %f\n", sqrt(u_sq), av_vels_local[local_id]);
+    int ny_global = get_global_size(0);
+    int nx_global = get_global_size(1);
+
+    int y_group_id = get_group_id(0);
+    int x_group_id = get_group_id(1);
+
+    av_vels_local[x_local_id + y_local_id * nx_local] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
+    // printf("%f\n", sqrt(u_sq));
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    if (local_id == 0) {
+    if (x_local_id == 0 && y_local_id == 0) {
         float sum = 0.0f;
 
-        for (int i = 0; i < num_work_items; i++) {
+        for (int i = 0; i < ny_local * nx_local; i++) {
             sum += av_vels_local[i];
         }
 
-        av_vels_global[group_id] = sum;
+        av_vels_global[x_group_id + y_group_id * (nx_global / nx_local)] = sum;
         // printf("%f %f\n", sum, av_vels_global[group_id]);
     }
 }

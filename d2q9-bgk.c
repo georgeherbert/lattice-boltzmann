@@ -187,9 +187,8 @@ int main(int argc, char* argv[]) {
     err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
 
-    for (int tt = 0; tt < 5; tt++) {
+    for (int tt = 0; tt < params.maxIters; tt++) {
         av_vels[tt] = timestep(params, cells, cells_new, obstacles, ocl);
-        // printf("%f \n", av_vels[tt]);
         cl_mem temporary = ocl.cells;
         ocl.cells = ocl.cells_new;
         ocl.cells_new = temporary;
@@ -265,14 +264,14 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
 
     for (int i = 0; i < (params.nx * params.ny) / (NX_LOCAL * NY_LOCAL); i++) {
         av_vels += local_sum[i];
-        // printf("%f + ", local_sum[i]);
+        // printf("%f\n", av_vels);
     }
 
-    printf("%f\n", av_vels);
+    // printf("%f %f %f\n", av_vels, params.num_non_obstacles_r, av_vels / params.num_non_obstacles_r);
 
     free(local_sum);
 
-    return av_vels / params.num_non_obstacles_r;
+    return av_vels * params.num_non_obstacles_r;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl) {

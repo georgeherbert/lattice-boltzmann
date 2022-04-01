@@ -68,15 +68,6 @@ __kernel void timestep(
     __global float* restrict cells_speeds_6,
     __global float* restrict cells_speeds_7,
     __global float* restrict cells_speeds_8,
-    __global float* restrict cells_new_speeds_0,
-    __global float* restrict cells_new_speeds_1,
-    __global float* restrict cells_new_speeds_2,
-    __global float* restrict cells_new_speeds_3,
-    __global float* restrict cells_new_speeds_4,
-    __global float* restrict cells_new_speeds_5,
-    __global float* restrict cells_new_speeds_6,
-    __global float* restrict cells_new_speeds_7,
-    __global float* restrict cells_new_speeds_8,
     __global int* restrict obstacles,
     __local float* restrict av_vels_local,
     __global float* restrict av_vels_global,
@@ -92,15 +83,15 @@ __kernel void timestep(
     const float w2 = 1.f / 36.f; /* weighting factor */
 
     /* get column and row indices */
-    int ii = get_global_id(0);
-    int jj = get_global_id(1);
+    const int ii = get_global_id(0);
+    const int jj = get_global_id(1);
 
     /* determine indices of axis-direction neighbours
     ** respecting periodic boundary conditions (wrap around) */
-    int y_n = (jj + 1) % ny;
-    int x_e = (ii + 1) % nx;
-    int y_s = (jj == 0) ? (jj + ny - 1) : (jj - 1);
-    int x_w = (ii == 0) ? (ii + nx - 1) : (ii - 1);
+    const int y_n = (jj + 1) % ny;
+    const int x_e = (ii + 1) % nx;
+    const int y_s = (jj == 0) ? (jj + ny - 1) : (jj - 1);
+    const int x_w = (ii == 0) ? (ii + nx - 1) : (ii - 1);
 
     const float local_density = cells_speeds_0[ii + jj * nx] + cells_speeds_1[x_w + jj * nx] + cells_speeds_2[ii + y_s * nx] + cells_speeds_3[x_e + jj * nx] + cells_speeds_4[ii + y_n * nx] + cells_speeds_5[x_w + y_s * nx] + cells_speeds_6[x_e + y_s * nx] + cells_speeds_7[x_e + y_n * nx] + cells_speeds_8[x_w + y_n * nx];
 
@@ -112,29 +103,40 @@ __kernel void timestep(
     const float u_sq = u_x * u_x + u_y * u_y;
 
     /* relaxation step and obstacles step combined */
-    cells_new_speeds_0[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_0[ii + jj * nx] : cells_speeds_0[ii + jj * nx] + omega * (w0 * local_density * (1.f - u_sq * two_c_sq_r) - cells_speeds_0[ii + jj * nx]);
-    cells_new_speeds_1[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_3[x_e + jj * nx] : cells_speeds_1[x_w + jj * nx] + omega * (w1 * local_density * (1.f + u_x * c_sq_r + (u_x * u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_1[x_w + jj * nx]);
-    cells_new_speeds_2[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_4[ii + y_n * nx] : cells_speeds_2[ii + y_s * nx] + omega * (w1 * local_density * (1.f + u_y * c_sq_r + (u_y * u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_2[ii + y_s * nx]);
-    cells_new_speeds_3[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_1[x_w + jj * nx] : cells_speeds_3[x_e + jj * nx] + omega * (w1 * local_density * (1.f + -u_x * c_sq_r + (-u_x * -u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_3[x_e + jj * nx]);
-    cells_new_speeds_4[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_2[ii + y_s * nx] : cells_speeds_4[ii + y_n * nx] + omega * (w1 * local_density * (1.f + -u_y * c_sq_r + (-u_y * -u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_4[ii + y_n * nx]);
-    cells_new_speeds_5[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_7[x_e + y_n * nx] : cells_speeds_5[x_w + y_s * nx] + omega * (w2 * local_density * (1.f + (u_x + u_y) * c_sq_r + ((u_x + u_y) * (u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_5[x_w + y_s * nx]);
-    cells_new_speeds_6[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_8[x_w + y_n * nx] : cells_speeds_6[x_e + y_s * nx] + omega * (w2 * local_density * (1.f + (-u_x + u_y) * c_sq_r + ((-u_x + u_y) * (-u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_6[x_e + y_s * nx]);
-    cells_new_speeds_7[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_5[x_w + y_s * nx] : cells_speeds_7[x_e + y_n * nx] + omega * (w2 * local_density * (1.f + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_7[x_e + y_n * nx]);
-    cells_new_speeds_8[ii + jj * nx] = obstacles[ii + jj * nx] ? cells_speeds_6[x_e + y_s * nx] : cells_speeds_8[x_w + y_n * nx] + omega * (w2 * local_density * (1.f + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_8[x_w + y_n * nx]);
+    const float temp_speeds_0 = obstacles[ii + jj * nx] ? cells_speeds_0[ii + jj * nx] : cells_speeds_0[ii + jj * nx] + omega * (w0 * local_density * (1.f - u_sq * two_c_sq_r) - cells_speeds_0[ii + jj * nx]);
+    const float temp_speeds_1 = obstacles[ii + jj * nx] ? cells_speeds_3[x_e + jj * nx] : cells_speeds_1[x_w + jj * nx] + omega * (w1 * local_density * (1.f + u_x * c_sq_r + (u_x * u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_1[x_w + jj * nx]);
+    const float temp_speeds_2 = obstacles[ii + jj * nx] ? cells_speeds_4[ii + y_n * nx] : cells_speeds_2[ii + y_s * nx] + omega * (w1 * local_density * (1.f + u_y * c_sq_r + (u_y * u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_2[ii + y_s * nx]);
+    const float temp_speeds_3 = obstacles[ii + jj * nx] ? cells_speeds_1[x_w + jj * nx] : cells_speeds_3[x_e + jj * nx] + omega * (w1 * local_density * (1.f + -u_x * c_sq_r + (-u_x * -u_x) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_3[x_e + jj * nx]);
+    const float temp_speeds_4 = obstacles[ii + jj * nx] ? cells_speeds_2[ii + y_s * nx] : cells_speeds_4[ii + y_n * nx] + omega * (w1 * local_density * (1.f + -u_y * c_sq_r + (-u_y * -u_y) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_4[ii + y_n * nx]);
+    const float temp_speeds_5 = obstacles[ii + jj * nx] ? cells_speeds_7[x_e + y_n * nx] : cells_speeds_5[x_w + y_s * nx] + omega * (w2 * local_density * (1.f + (u_x + u_y) * c_sq_r + ((u_x + u_y) * (u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_5[x_w + y_s * nx]);
+    const float temp_speeds_6 = obstacles[ii + jj * nx] ? cells_speeds_8[x_w + y_n * nx] : cells_speeds_6[x_e + y_s * nx] + omega * (w2 * local_density * (1.f + (-u_x + u_y) * c_sq_r + ((-u_x + u_y) * (-u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_6[x_e + y_s * nx]);
+    const float temp_speeds_7 = obstacles[ii + jj * nx] ? cells_speeds_5[x_w + y_s * nx] : cells_speeds_7[x_e + y_n * nx] + omega * (w2 * local_density * (1.f + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_7[x_e + y_n * nx]);
+    const float temp_speeds_8 = obstacles[ii + jj * nx] ? cells_speeds_6[x_e + y_s * nx] : cells_speeds_8[x_w + y_n * nx] + omega * (w2 * local_density * (1.f + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells_speeds_8[x_w + y_n * nx]);
 
-    int ny_local = get_local_size(0);
-    int nx_local = get_local_size(1);
-    int y_local_id = get_local_id(0);
-    int x_local_id = get_local_id(1);
+    cells_speeds_0[ii + jj * nx] = temp_speeds_0;
+    cells_speeds_1[ii + jj * nx] = temp_speeds_1;
+    cells_speeds_2[ii + jj * nx] = temp_speeds_2;
+    cells_speeds_3[ii + jj * nx] = temp_speeds_3;
+    cells_speeds_4[ii + jj * nx] = temp_speeds_4;
+    cells_speeds_5[ii + jj * nx] = temp_speeds_5;
+    cells_speeds_6[ii + jj * nx] = temp_speeds_6;
+    cells_speeds_7[ii + jj * nx] = temp_speeds_7;
+    cells_speeds_8[ii + jj * nx] = temp_speeds_8;
 
-    int ny_global = get_global_size(0);
-    int nx_global = get_global_size(1);
+    const int ny_local = get_local_size(0);
+    const int nx_local = get_local_size(1);
+    const int y_local_id = get_local_id(0);
+    const int x_local_id = get_local_id(1);
 
-    int y_group_id = get_group_id(0);
-    int x_group_id = get_group_id(1);
+    const int ny_group = get_num_groups(0);
+    const int nx_group = get_num_groups(1);
+    const int y_group_id = get_group_id(0);
+    const int x_group_id = get_group_id(1);
 
-    av_vels_local[x_local_id + y_local_id * nx_local] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
-    // printf("%f\n", sqrt(u_sq));
+    int local_index = x_local_id + y_local_id * nx_local;
+    int group_index = x_group_id + y_group_id * nx_group;
+
+    av_vels_local[local_index] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -145,7 +147,6 @@ __kernel void timestep(
             sum += av_vels_local[i];
         }
 
-        av_vels_global[x_group_id + y_group_id * (nx_global / nx_local)] = sum;
-        // printf("%f %f\n", sum, av_vels_global[group_id]);
+        av_vels_global[group_index] = sum;
     }
 }

@@ -7,7 +7,14 @@ typedef struct
     float speeds[NSPEEDS];
 } t_speed;
 
-kernel void accelerate_flow(global t_speed* cells, global int* obstacles, int nx, int ny, float density, float accel) {
+__kernel void accelerate_flow(
+    __global t_speed* cells,
+    __global int* obstacles,
+    int nx,
+    int ny,
+    float density,
+    float accel) {
+
     /* compute weighting factors */
     float w1 = density * accel / 9.0;
     float w2 = density * accel / 36.0;
@@ -21,22 +28,31 @@ kernel void accelerate_flow(global t_speed* cells, global int* obstacles, int nx
     /* if the cell is not occupied and
     ** we don't send a negative density */
     if (!obstacles[ii + jj* nx] 
-        && (cells[ii + jj* nx].speeds[3] - w1) > 0.f
-        && (cells[ii + jj* nx].speeds[6] - w2) > 0.f
-        && (cells[ii + jj* nx].speeds[7] - w2) > 0.f) {
+        && (cells[ii + jj * nx].speeds[3] - w1) > 0.f
+        && (cells[ii + jj * nx].speeds[6] - w2) > 0.f
+        && (cells[ii + jj * nx].speeds[7] - w2) > 0.f) {
 
         /* increase 'east-side' densities */
-        cells[ii + jj* nx].speeds[1] += w1;
-        cells[ii + jj* nx].speeds[5] += w2;
-        cells[ii + jj* nx].speeds[8] += w2;
+        cells[ii + jj * nx].speeds[1] += w1;
+        cells[ii + jj * nx].speeds[5] += w2;
+        cells[ii + jj * nx].speeds[8] += w2;
         /* decrease 'west-side' densities */
-        cells[ii + jj* nx].speeds[3] -= w1;
-        cells[ii + jj* nx].speeds[6] -= w2;
-        cells[ii + jj* nx].speeds[7] -= w2;
+        cells[ii + jj * nx].speeds[3] -= w1;
+        cells[ii + jj * nx].speeds[6] -= w2;
+        cells[ii + jj * nx].speeds[7] -= w2;
     }
 }
 
-kernel void timestep(global t_speed* cells, global t_speed* cells_new, global int* obstacles, int nx, int ny, float omega) {
+__kernel void timestep(
+    __global t_speed* cells,
+    __global t_speed* cells_new,
+    __global int* obstacles,
+    __local float* av_vels_local,
+    __global float* av_vels_global,
+    int nx,
+    int ny,
+    float omega) {
+
     const float c_sq_r = 3.f;
     const float two_c_sq_r = 1.5f;
     const float two_c_sq_sq_r = 4.5f;
@@ -74,4 +90,24 @@ kernel void timestep(global t_speed* cells, global t_speed* cells_new, global in
     cells_new[ii + jj * nx].speeds[6] = obstacles[ii + jj * nx] ? cells[x_w + y_n * nx].speeds[8] : cells[x_e + y_s * nx].speeds[6] + omega * (w2 * local_density * (1.f + (-u_x + u_y) * c_sq_r + ((-u_x + u_y) * (-u_x + u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells[x_e + y_s * nx].speeds[6]);
     cells_new[ii + jj * nx].speeds[7] = obstacles[ii + jj * nx] ? cells[x_w + y_s * nx].speeds[5] : cells[x_e + y_n * nx].speeds[7] + omega * (w2 * local_density * (1.f + (-u_x - u_y) * c_sq_r + ((-u_x - u_y) * (-u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells[x_e + y_n * nx].speeds[7]);
     cells_new[ii + jj * nx].speeds[8] = obstacles[ii + jj * nx] ? cells[x_e + y_s * nx].speeds[6] : cells[x_w + y_n * nx].speeds[8] + omega * (w2 * local_density * (1.f + (u_x - u_y) * c_sq_r + ((u_x - u_y) * (u_x - u_y)) * two_c_sq_sq_r - u_sq * two_c_sq_r) - cells[x_w + y_n * nx].speeds[8]);
+
+    int num_work_items = get_local_size(0);
+    int local_id = get_local_id(0);
+    int group_id = get_group_id(0);
+
+    av_vels_local[local_id] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
+    // printf("%f %f\n", sqrt(u_sq), av_vels_local[local_id]);
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (local_id == 0) {
+        float sum = 0.0f;
+
+        for (int i = 0; i < num_work_items; i++) {
+            sum += av_vels_local[i];
+        }
+
+        av_vels_global[group_id] = sum;
+        // printf("%f %f\n", sum, av_vels_global[group_id]);
+    }
 }

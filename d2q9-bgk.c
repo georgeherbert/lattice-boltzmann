@@ -63,10 +63,12 @@
 #include <CL/opencl.h>
 #endif
 
-#define NSPEEDS                 9
-#define FINALSTATEFILE    "final_state.dat"
-#define AVVELSFILE            "av_vels.dat"
-#define OCLFILE                 "kernels.cl"
+#define NSPEEDS 9
+#define FINALSTATEFILE "final_state.dat"
+#define AVVELSFILE "av_vels.dat"
+#define OCLFILE "kernels.cl"
+#define NX_LOCAL 16
+#define NY_LOCAL 16
 
 /* struct to hold the parameter values */
 typedef struct {
@@ -77,6 +79,7 @@ typedef struct {
     float density; /* density per link */
     float accel; /* density redistribution */
     float omega; /* relaxation parameter */
+    float num_non_obstacles_r;
 } t_param;
 
 /* struct to hold OpenCL objects */
@@ -92,6 +95,7 @@ typedef struct {
     cl_mem cells;
     cl_mem cells_new;
     cl_mem obstacles;
+    cl_mem av_vels_global;
 } t_ocl;
 
 /* struct to hold the 'speed' values */
@@ -111,7 +115,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 /*
 ** The main calculation methods.
 */
-int timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles, t_ocl ocl);
+float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles, t_ocl ocl);
 int timestep_2(const t_param params, t_speed* cells, t_speed* cells_new, t_ocl ocl);
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
@@ -183,13 +187,12 @@ int main(int argc, char* argv[]) {
     err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
 
-    for (int tt = 0; tt < params.maxIters; tt++) {
-        timestep(params, cells, cells_new, obstacles, ocl);
+    for (int tt = 0; tt < 5; tt++) {
+        av_vels[tt] = timestep(params, cells, cells_new, obstacles, ocl);
+        // printf("%f \n", av_vels[tt]);
         cl_mem temporary = ocl.cells;
         ocl.cells = ocl.cells_new;
         ocl.cells_new = temporary;
-        // av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
-        av_vels[tt] = 0;
 #ifdef DEBUG
         printf("==timestep: %d==\n", tt);
         printf("av velocity: %.12E\n", av_vels[tt]);
@@ -225,7 +228,7 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
 }
 
-int timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles, t_ocl ocl) {
+float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obstacles, t_ocl ocl) {
     cl_int err;
 
     // Accelerate flow
@@ -244,15 +247,32 @@ int timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* obst
     err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells); checkError(err, "setting timestep arg 0", __LINE__);
     err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem), &ocl.cells_new); checkError(err, "setting timestep arg 1", __LINE__);
     err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 2", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 3", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 4", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 5", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 3", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 4", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 5", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 6", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 7", __LINE__);
 
     size_t global_timestep[2] = {params.nx, params.ny};
-    err = clEnqueueNDRangeKernel(ocl.queue, ocl.timestep, 2, NULL, global_timestep, NULL, 0, NULL, NULL); checkError(err, "enqueueing timestep kernel", __LINE__);
+    size_t local_timestep[2] = {NX_LOCAL, NY_LOCAL};
+    err = clEnqueueNDRangeKernel(ocl.queue, ocl.timestep, 2, NULL, global_timestep, local_timestep, 0, NULL, NULL); checkError(err, "enqueueing timestep kernel", __LINE__);
     err = clFinish(ocl.queue); checkError(err, "waiting for timestep kernel", __LINE__);
 
-    return EXIT_SUCCESS;
+    float* local_sum = malloc(sizeof(float) * ((params.nx * params.ny) / (NX_LOCAL * NY_LOCAL)));
+    err = clEnqueueReadBuffer(ocl.queue, ocl.av_vels_global, CL_TRUE, 0, sizeof(float) * ((params.nx * params.ny) / (NX_LOCAL * NY_LOCAL)), local_sum, 0, NULL, NULL); checkError(err, "Reading back av_vels_global", __LINE__);
+
+    float av_vels = 0.0f;
+
+    for (int i = 0; i < (params.nx * params.ny) / (NX_LOCAL * NY_LOCAL); i++) {
+        av_vels += local_sum[i];
+        // printf("%f + ", local_sum[i]);
+    }
+
+    printf("%f\n", av_vels);
+
+    free(local_sum);
+
+    return av_vels / params.num_non_obstacles_r;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl) {
@@ -369,6 +389,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
         }
     }
 
+    int num_obstacles = 0;
     /* open the obstacle data file */
     fp = fopen(obstaclefile, "r");
     if (fp == NULL) {
@@ -386,7 +407,9 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 
         /* assign to array */
         (*obstacles_ptr)[xx + yy*params->nx] = blocked;
+        ++num_obstacles;
     }
+    params->num_non_obstacles_r = 1.f / (params->nx * params->ny - num_obstacles);
 
     fclose(fp);
 
@@ -449,6 +472,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     checkError(err, "creating cells_new buffer", __LINE__);
     ocl->obstacles = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_int) * params->nx * params->ny, NULL, &err);
     checkError(err, "creating obstacles buffer", __LINE__);
+    ocl->av_vels_global = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_float) * ((params->nx * params->ny) / (NX_LOCAL * NY_LOCAL)), NULL, &err);
+    checkError(err, "creating av_vels_global buffer", __LINE__);
 
     return EXIT_SUCCESS;
 }
@@ -462,6 +487,7 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
     clReleaseMemObject(ocl.cells);
     clReleaseMemObject(ocl.cells_new);
     clReleaseMemObject(ocl.obstacles);
+    clReleaseMemObject(ocl.av_vels_global);
     clReleaseKernel(ocl.accelerate_flow);
     clReleaseKernel(ocl.timestep);
     clReleaseProgram(ocl.program);

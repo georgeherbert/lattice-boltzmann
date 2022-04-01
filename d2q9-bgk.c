@@ -92,16 +92,39 @@ typedef struct {
     cl_kernel accelerate_flow;
     cl_kernel timestep;
 
-    cl_mem cells;
-    cl_mem cells_new;
+    cl_mem cells_speeds_0;
+    cl_mem cells_speeds_1;
+    cl_mem cells_speeds_2;
+    cl_mem cells_speeds_3;
+    cl_mem cells_speeds_4;
+    cl_mem cells_speeds_5;
+    cl_mem cells_speeds_6;
+    cl_mem cells_speeds_7;
+    cl_mem cells_speeds_8;
+    cl_mem cells_new_speeds_0;
+    cl_mem cells_new_speeds_1;
+    cl_mem cells_new_speeds_2;
+    cl_mem cells_new_speeds_3;
+    cl_mem cells_new_speeds_4;
+    cl_mem cells_new_speeds_5;
+    cl_mem cells_new_speeds_6;
+    cl_mem cells_new_speeds_7;
+    cl_mem cells_new_speeds_8;
     cl_mem obstacles;
     cl_mem av_vels_global;
 } t_ocl;
 
 /* struct to hold the 'speed' values */
-typedef struct
-{
-    float speeds[NSPEEDS];
+typedef struct {
+  float* restrict speeds_0;
+  float* restrict speeds_1;
+  float* restrict speeds_2;
+  float* restrict speeds_3;
+  float* restrict speeds_4;
+  float* restrict speeds_5;
+  float* restrict speeds_6;
+  float* restrict speeds_7;
+  float* restrict speeds_8;
 } t_speed;
 
 /*
@@ -128,7 +151,7 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
 float total_density(const t_param params, t_speed* cells);
 
 /* compute average velocity */
-float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
+float av_velocity(const t_param params, t_speed* cells, int* obstacles);
 
 /* calculate Reynolds number */
 float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
@@ -180,31 +203,72 @@ int main(int argc, char* argv[]) {
     comp_tic = init_toc;
 
     // Write cells to OpenCL buffer
-    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells, CL_TRUE, 0, sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-    checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_0, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_0, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_1, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_1, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_2, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_2, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_3, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_3, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_4, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_4, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_5, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_5, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_6, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_6, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_7, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_7, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
+    err = clEnqueueWriteBuffer(ocl.queue, ocl.cells_speeds_8, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_8, 0, NULL, NULL); checkError(err, "writing cells data", __LINE__);
 
     // Write obstacles to OpenCL buffer
     err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
 
-    err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 1", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 2", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &params.ny); checkError(err, "setting accelerate_flow arg 3", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_float), &params.density); checkError(err, "setting accelerate_flow arg 4", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_float), &params.accel); checkError(err, "setting accelerate_flow arg 5", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 9, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 1", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 10, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 2", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 11, sizeof(cl_int), &params.ny); checkError(err, "setting accelerate_flow arg 3", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 12, sizeof(cl_float), &params.density); checkError(err, "setting accelerate_flow arg 4", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 13, sizeof(cl_float), &params.accel); checkError(err, "setting accelerate_flow arg 5", __LINE__);
 
-    err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 2", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 3", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 4", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 5", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 6", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 7", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 18, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 2", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 19, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 3", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 20, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 4", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 21, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 5", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 22, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 6", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 23, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 7", __LINE__);
 
     for (int tt = 0; tt < params.maxIters; tt++) {
         av_vels[tt] = timestep(params, cells, cells_new, obstacles, ocl);
-        cl_mem temporary = ocl.cells;
-        ocl.cells = ocl.cells_new;
-        ocl.cells_new = temporary;
+        cl_mem temporary;
+
+        temporary = ocl.cells_speeds_0;
+        ocl.cells_speeds_0 = ocl.cells_new_speeds_0;
+        ocl.cells_new_speeds_0 = temporary;
+
+        temporary = ocl.cells_speeds_1;
+        ocl.cells_speeds_1 = ocl.cells_new_speeds_1;
+        ocl.cells_new_speeds_1 = temporary;
+
+        temporary = ocl.cells_speeds_2;
+        ocl.cells_speeds_2 = ocl.cells_new_speeds_2;
+        ocl.cells_new_speeds_2 = temporary;
+
+        temporary = ocl.cells_speeds_3;
+        ocl.cells_speeds_3 = ocl.cells_new_speeds_3;
+        ocl.cells_new_speeds_3 = temporary;
+
+        temporary = ocl.cells_speeds_4;
+        ocl.cells_speeds_4 = ocl.cells_new_speeds_4;
+        ocl.cells_new_speeds_4 = temporary;
+
+        temporary = ocl.cells_speeds_5;
+        ocl.cells_speeds_5 = ocl.cells_new_speeds_5;
+        ocl.cells_new_speeds_5 = temporary;
+
+        temporary = ocl.cells_speeds_6;
+        ocl.cells_speeds_6 = ocl.cells_new_speeds_6;
+        ocl.cells_new_speeds_6 = temporary;
+
+        temporary = ocl.cells_speeds_7;
+        ocl.cells_speeds_7 = ocl.cells_new_speeds_7;
+        ocl.cells_new_speeds_7 = temporary;
+
+        temporary = ocl.cells_speeds_8;
+        ocl.cells_speeds_8 = ocl.cells_new_speeds_8;
+        ocl.cells_new_speeds_8 = temporary;
 #ifdef DEBUG
         printf("==timestep: %d==\n", tt);
         printf("av velocity: %.12E\n", av_vels[tt]);
@@ -212,8 +276,15 @@ int main(int argc, char* argv[]) {
 #endif
     }
 
-    err = clEnqueueReadBuffer(ocl.queue, ocl.cells, CL_TRUE, 0, sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-    checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_0, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_0, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_1, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_1, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_2, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_2, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_3, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_3, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_4, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_4, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_5, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_5, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_6, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_6, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_7, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_7, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_8, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_8, 0, NULL, NULL); checkError(err, "reading cells_new data", __LINE__);
 
     /* Compute time stops here, collate time starts*/
     gettimeofday(&timstr, NULL);
@@ -244,14 +315,39 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
     cl_int err;
 
     // Accelerate flow
-    err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_mem), &ocl.cells_speeds_2); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_mem), &ocl.cells_speeds_3); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_mem), &ocl.cells_speeds_4); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_mem), &ocl.cells_speeds_5); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 6, sizeof(cl_mem), &ocl.cells_speeds_6); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+
     size_t global_accelerate_flow[1] = {params.nx};
     err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow, 1, NULL, global_accelerate_flow, NULL, 0, NULL, NULL); checkError(err, "enqueueing accelerate_flow kernel", __LINE__);
     // err = clFinish(ocl.queue); checkError(err, "waiting for accelerate_flow kernel", __LINE__);
 
     // Timestep
-    err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem ), &ocl.cells_new); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.cells_speeds_2); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_mem), &ocl.cells_speeds_3); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.cells_speeds_4); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_mem), &ocl.cells_speeds_5); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_mem), &ocl.cells_speeds_6); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 9, sizeof(cl_mem ), &ocl.cells_new_speeds_0); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 10, sizeof(cl_mem ), &ocl.cells_new_speeds_1); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 11, sizeof(cl_mem ), &ocl.cells_new_speeds_2); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 12, sizeof(cl_mem ), &ocl.cells_new_speeds_3); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 13, sizeof(cl_mem ), &ocl.cells_new_speeds_4); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 14, sizeof(cl_mem ), &ocl.cells_new_speeds_5); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 15, sizeof(cl_mem ), &ocl.cells_new_speeds_6); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 16, sizeof(cl_mem ), &ocl.cells_new_speeds_7); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 17, sizeof(cl_mem ), &ocl.cells_new_speeds_8); checkError(err, "setting timestep arg 1", __LINE__);
     size_t global_timestep[2] = {params.nx, params.ny};
     size_t local_timestep[2] = {NX_LOCAL, NY_LOCAL};
     err = clEnqueueNDRangeKernel(ocl.queue, ocl.timestep, 2, NULL, global_timestep, local_timestep, 0, NULL, NULL); checkError(err, "enqueueing timestep kernel", __LINE__);
@@ -273,48 +369,32 @@ float timestep(const t_param params, t_speed* cells, t_speed* cells_new, int* ob
     return av_vels * params.num_non_obstacles_r;
 }
 
-float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl) {
-    int tot_cells = 0;    /* no. of cells used in calculation */
-    float tot_u;                    /* accumulated magnitudes of velocity for each cell */
-
-    /* initialise */
-    tot_u = 0.f;
+float av_velocity(const t_param params, t_speed* cells, int* obstacles) {
+    int tot_cells = 0; /* no. of cells used in calculation */
+    float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
     /* loop over all non-blocked cells */
-    for (int jj = 0; jj < params.ny; jj++)
-    {
-        for (int ii = 0; ii < params.nx; ii++)
-        {
-            /* ignore occupied cells */
-            if (!obstacles[ii + jj*params.nx])
-            {
-                /* local density total */
+    for (int jj = 0; jj < params.ny; jj++) {
+        for (int ii = 0; ii < params.nx; ii++) {
+            if (!obstacles[ii + jj * params.nx]) {
                 float local_density = 0.f;
+                local_density += cells->speeds_0[ii + jj * params.nx];
+                local_density += cells->speeds_1[ii + jj * params.nx];
+                local_density += cells->speeds_2[ii + jj * params.nx];
+                local_density += cells->speeds_3[ii + jj * params.nx];
+                local_density += cells->speeds_4[ii + jj * params.nx];
+                local_density += cells->speeds_5[ii + jj * params.nx];
+                local_density += cells->speeds_6[ii + jj * params.nx];
+                local_density += cells->speeds_7[ii + jj * params.nx];
+                local_density += cells->speeds_8[ii + jj * params.nx];
 
-                for (int kk = 0; kk < NSPEEDS; kk++)
-                {
-                    local_density += cells[ii + jj*params.nx].speeds[kk];
-                }
-
-                /* x-component of velocity */
-                float u_x = (cells[ii + jj*params.nx].speeds[1]
-                                            + cells[ii + jj*params.nx].speeds[5]
-                                            + cells[ii + jj*params.nx].speeds[8]
-                                            - (cells[ii + jj*params.nx].speeds[3]
-                                                 + cells[ii + jj*params.nx].speeds[6]
-                                                 + cells[ii + jj*params.nx].speeds[7]))
-                                         / local_density;
-                /* compute y velocity component */
-                float u_y = (cells[ii + jj*params.nx].speeds[2]
-                                            + cells[ii + jj*params.nx].speeds[5]
-                                            + cells[ii + jj*params.nx].speeds[6]
-                                            - (cells[ii + jj*params.nx].speeds[4]
-                                                 + cells[ii + jj*params.nx].speeds[7]
-                                                 + cells[ii + jj*params.nx].speeds[8]))
-                                         / local_density;
-                /* accumulate the norm of x- and y- velocity components */
+                float u_x = (cells->speeds_1[ii + jj*params.nx] + cells->speeds_5[ii + jj*params.nx] + cells->speeds_8[ii + jj*params.nx]
+                    - (cells->speeds_3[ii + jj*params.nx] + cells->speeds_6[ii + jj*params.nx] + cells->speeds_7[ii + jj*params.nx]))
+                    / local_density;
+                float u_y = (cells->speeds_2[ii + jj*params.nx] + cells->speeds_5[ii + jj*params.nx] + cells->speeds_6[ii + jj*params.nx]
+                    - (cells->speeds_4[ii + jj*params.nx] + cells->speeds_7[ii + jj*params.nx] + cells->speeds_8[ii + jj*params.nx]))
+                    / local_density;
                 tot_u += sqrtf((u_x * u_x) + (u_y * u_y));
-                /* increase counter of inspected cells */
                 ++tot_cells;
             }
         }
@@ -351,11 +431,29 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     fclose(fp);
 
     /* main grid */
-    *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * (params->ny * params->nx));
-    if (*cells_ptr == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-    *cells_new_ptr = (t_speed*)malloc(sizeof(t_speed) * (params->ny * params->nx));
-    if (*cells_new_ptr == NULL) die("cannot allocate memory for cells_new", __LINE__, __FILE__);
-    *obstacles_ptr = malloc(sizeof(int) * (params->ny * params->nx));
+    *cells_ptr = (t_speed*)malloc(sizeof(float*) * NSPEEDS);
+    (*cells_ptr)->speeds_0 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_1 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_2 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_3 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_4 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_5 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_6 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_7 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_ptr)->speeds_8 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+
+    *cells_new_ptr = (t_speed*)malloc(sizeof(float*) * NSPEEDS);
+    (*cells_new_ptr)->speeds_0 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_1 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_2 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_3 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_4 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_5 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_6 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_7 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+    (*cells_new_ptr)->speeds_8 = (float*)malloc(sizeof(float) * params->ny * params->nx);
+
+    *obstacles_ptr = malloc(sizeof(int) * params->ny * params->nx);
     if (*obstacles_ptr == NULL) die("cannot allocate column memory for obstacles", __LINE__, __FILE__);
 
     /* initialise densities */
@@ -366,17 +464,17 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     for (int jj = 0; jj < params->ny; jj++) {
         for (int ii = 0; ii < params->nx; ii++) {
             /* centre */
-            (*cells_ptr)[ii + jj*params->nx].speeds[0] = w0;
+            (*cells_ptr)->speeds_0[ii + jj*params->nx] = w0;
             /* axis directions */
-            (*cells_ptr)[ii + jj*params->nx].speeds[1] = w1;
-            (*cells_ptr)[ii + jj*params->nx].speeds[2] = w1;
-            (*cells_ptr)[ii + jj*params->nx].speeds[3] = w1;
-            (*cells_ptr)[ii + jj*params->nx].speeds[4] = w1;
+            (*cells_ptr)->speeds_1[ii + jj*params->nx] = w1;
+            (*cells_ptr)->speeds_2[ii + jj*params->nx] = w1;
+            (*cells_ptr)->speeds_3[ii + jj*params->nx] = w1;
+            (*cells_ptr)->speeds_4[ii + jj*params->nx] = w1;
             /* diagonals */
-            (*cells_ptr)[ii + jj*params->nx].speeds[5] = w2;
-            (*cells_ptr)[ii + jj*params->nx].speeds[6] = w2;
-            (*cells_ptr)[ii + jj*params->nx].speeds[7] = w2;
-            (*cells_ptr)[ii + jj*params->nx].speeds[8] = w2;
+            (*cells_ptr)->speeds_5[ii + jj*params->nx] = w2;
+            (*cells_ptr)->speeds_6[ii + jj*params->nx] = w2;
+            (*cells_ptr)->speeds_7[ii + jj*params->nx] = w2;
+            (*cells_ptr)->speeds_8[ii + jj*params->nx] = w2;
         }
     }
 
@@ -464,10 +562,24 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     checkError(err, "creating timestep kernel", __LINE__);
 
     // Allocate OpenCL buffers
-    ocl->cells = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(t_speed) * params->nx * params->ny, NULL, &err);
-    checkError(err, "creating cells buffer", __LINE__);
-    ocl->cells_new = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(t_speed) * params->nx * params->ny, NULL, &err);
-    checkError(err, "creating cells_new buffer", __LINE__);
+    ocl->cells_speeds_0 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_1 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_2 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_3 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_4 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_5 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_6 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_7 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_speeds_8 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_0 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_1 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_2 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_3 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_4 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_5 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_6 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_7 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
+    ocl->cells_new_speeds_8 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
     ocl->obstacles = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_int) * params->nx * params->ny, NULL, &err);
     checkError(err, "creating obstacles buffer", __LINE__);
     ocl->av_vels_global = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_float) * ((params->nx * params->ny) / (NX_LOCAL * NY_LOCAL)), NULL, &err);
@@ -482,8 +594,24 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
     free(*obstacles_ptr); *obstacles_ptr = NULL;
     free(*av_vels_ptr); *av_vels_ptr = NULL;
 
-    clReleaseMemObject(ocl.cells);
-    clReleaseMemObject(ocl.cells_new);
+    clReleaseMemObject(ocl.cells_speeds_0);
+    clReleaseMemObject(ocl.cells_speeds_1);
+    clReleaseMemObject(ocl.cells_speeds_2);
+    clReleaseMemObject(ocl.cells_speeds_3);
+    clReleaseMemObject(ocl.cells_speeds_4);
+    clReleaseMemObject(ocl.cells_speeds_5);
+    clReleaseMemObject(ocl.cells_speeds_6);
+    clReleaseMemObject(ocl.cells_speeds_7);
+    clReleaseMemObject(ocl.cells_speeds_8);
+    clReleaseMemObject(ocl.cells_new_speeds_0);
+    clReleaseMemObject(ocl.cells_new_speeds_1);
+    clReleaseMemObject(ocl.cells_new_speeds_2);
+    clReleaseMemObject(ocl.cells_new_speeds_3);
+    clReleaseMemObject(ocl.cells_new_speeds_4);
+    clReleaseMemObject(ocl.cells_new_speeds_5);
+    clReleaseMemObject(ocl.cells_new_speeds_6);
+    clReleaseMemObject(ocl.cells_new_speeds_7);
+    clReleaseMemObject(ocl.cells_new_speeds_8);
     clReleaseMemObject(ocl.obstacles);
     clReleaseMemObject(ocl.av_vels_global);
     clReleaseKernel(ocl.accelerate_flow);
@@ -497,16 +625,22 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr
 
 float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl) {
     const float viscosity = 1.f / 6.f * (2.f / params.omega - 1.f);
-    return av_velocity(params, cells, obstacles, ocl) * params.reynolds_dim / viscosity;
+    return av_velocity(params, cells, obstacles) * params.reynolds_dim / viscosity;
 }
 
 float total_density(const t_param params, t_speed* cells) {
     float total = 0.f;    /* accumulator */
     for (int jj = 0; jj < params.ny; jj++) {
         for (int ii = 0; ii < params.nx; ii++) {
-            for (int kk = 0; kk < NSPEEDS; kk++) {
-                total += cells[ii + jj*params.nx].speeds[kk];
-            }
+            total += cells->speeds_0[ii + jj * params.nx];
+            total += cells->speeds_1[ii + jj * params.nx];
+            total += cells->speeds_2[ii + jj * params.nx];
+            total += cells->speeds_3[ii + jj * params.nx];
+            total += cells->speeds_4[ii + jj * params.nx];
+            total += cells->speeds_5[ii + jj * params.nx];
+            total += cells->speeds_6[ii + jj * params.nx];
+            total += cells->speeds_7[ii + jj * params.nx];
+            total += cells->speeds_8[ii + jj * params.nx];
         }
     }
     return total;
@@ -534,15 +668,21 @@ int write_values(const t_param params, t_speed* cells, int* obstacles, float* av
             /* no obstacle */
             else {
                 local_density = 0.f;
-                for (int kk = 0; kk < NSPEEDS; kk++) {
-                    local_density += cells[ii + jj*params.nx].speeds[kk];
-                }
+                local_density += cells->speeds_0[ii + jj*params.nx];
+                local_density += cells->speeds_1[ii + jj*params.nx];
+                local_density += cells->speeds_2[ii + jj*params.nx];
+                local_density += cells->speeds_3[ii + jj*params.nx];
+                local_density += cells->speeds_4[ii + jj*params.nx];
+                local_density += cells->speeds_5[ii + jj*params.nx];
+                local_density += cells->speeds_6[ii + jj*params.nx];
+                local_density += cells->speeds_7[ii + jj*params.nx];
+                local_density += cells->speeds_8[ii + jj*params.nx];
 
-                u_x = (cells[ii + jj*params.nx].speeds[1] + cells[ii + jj*params.nx].speeds[5] + cells[ii + jj*params.nx].speeds[8]
-                    - (cells[ii + jj*params.nx].speeds[3] + cells[ii + jj*params.nx].speeds[6] + cells[ii + jj*params.nx].speeds[7]))
+                u_x = (cells->speeds_1[ii + jj*params.nx] + cells->speeds_5[ii + jj*params.nx] + cells->speeds_8[ii + jj*params.nx]
+                    - (cells->speeds_3[ii + jj*params.nx] + cells->speeds_6[ii + jj*params.nx] + cells->speeds_7[ii + jj*params.nx]))
                     / local_density;
-                u_y = (cells[ii + jj*params.nx].speeds[2] + cells[ii + jj*params.nx].speeds[5] + cells[ii + jj*params.nx].speeds[6]
-                    - (cells[ii + jj*params.nx].speeds[4] + cells[ii + jj*params.nx].speeds[7] + cells[ii + jj*params.nx].speeds[8]))
+                u_y = (cells->speeds_2[ii + jj*params.nx] + cells->speeds_5[ii + jj*params.nx] + cells->speeds_6[ii + jj*params.nx]
+                    - (cells->speeds_4[ii + jj*params.nx] + cells->speeds_7[ii + jj*params.nx] + cells->speeds_8[ii + jj*params.nx]))
                     / local_density;
                 u = sqrtf((u_x * u_x) + (u_y * u_y));
                 pressure = local_density * c_sq;

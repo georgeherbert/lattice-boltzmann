@@ -67,8 +67,8 @@
 #define FINALSTATEFILE "final_state.dat"
 #define AVVELSFILE "av_vels.dat"
 #define OCLFILE "kernels.cl"
-#define NX_LOCAL 4
-#define NY_LOCAL 4
+#define NX_LOCAL 16
+#define NY_LOCAL 16
 
 /* struct to hold the parameter values */
 typedef struct {
@@ -544,7 +544,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     checkError(err, "creating program", __LINE__);
 
     // Build OpenCL program
-    err = clBuildProgram(ocl->program, 1, &ocl->device, "", NULL, NULL);
+    err = clBuildProgram(ocl->program, 1, &ocl->device, "-cl-fast-relaxed-math", NULL, NULL);
     if (err == CL_BUILD_PROGRAM_FAILURE) {
         size_t sz;
         clGetProgramBuildInfo(ocl->program, ocl->device, CL_PROGRAM_BUILD_LOG, 0, NULL, &sz);

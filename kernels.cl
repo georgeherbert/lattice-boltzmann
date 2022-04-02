@@ -13,8 +13,7 @@ __kernel void accelerate_flow(
     __global float* restrict cells_speeds_7,
     __global float* restrict cells_speeds_8,
     __global const int* restrict obstacles,
-    const int nx,
-    const int jj,
+    const int second_row,
     const float density_mul_accel) {
 
     /* compute weighting factors */
@@ -26,19 +25,19 @@ __kernel void accelerate_flow(
 
     /* if the cell is not occupied and
     ** we don't send a negative density */
-    if (!obstacles[ii + jj* nx] 
-        && (cells_speeds_3[ii + jj * nx]) > w1
-        && (cells_speeds_6[ii + jj * nx]) > w2
-        && (cells_speeds_7[ii + jj * nx]) > w2) {
+    if (!obstacles[ii + second_row] 
+        && (cells_speeds_3[ii + second_row]) > w1
+        && (cells_speeds_6[ii + second_row]) > w2
+        && (cells_speeds_7[ii + second_row]) > w2) {
 
         /* increase 'east-side' densities */
-        cells_speeds_1[ii + jj * nx] += w1;
-        cells_speeds_5[ii + jj * nx] += w2;
-        cells_speeds_8[ii + jj * nx] += w2;
+        cells_speeds_1[ii + second_row] += w1;
+        cells_speeds_5[ii + second_row] += w2;
+        cells_speeds_8[ii + second_row] += w2;
         /* decrease 'west-side' densities */
-        cells_speeds_3[ii + jj * nx] -= w1;
-        cells_speeds_6[ii + jj * nx] -= w2;
-        cells_speeds_7[ii + jj * nx] -= w2;
+        cells_speeds_3[ii + second_row] -= w1;
+        cells_speeds_6[ii + second_row] -= w2;
+        cells_speeds_7[ii + second_row] -= w2;
     }
 }
 

@@ -67,8 +67,8 @@
 #define FINALSTATEFILE "final_state.dat"
 #define AVVELSFILE "av_vels.dat"
 #define OCLFILE "kernels.cl"
-#define NX_LOCAL 128
-#define NY_LOCAL 4
+#define NX_LOCAL 32
+#define NY_LOCAL 16
 
 /* struct to hold the parameter values */
 typedef struct {
@@ -172,12 +172,10 @@ int main(int argc, char* argv[]) {
     double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
 
     /* parse the command line */
-    if (argc != 3)
-    {
+    if (argc != 3) {
         usage(argv[0]);
     }
-    else
-    {
+    else {
         paramfile = argv[1];
         obstaclefile = argv[2];
     }
@@ -208,7 +206,7 @@ int main(int argc, char* argv[]) {
     err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
 
-    const int second_row = params.ny - 2;
+    const int second_row = (params.ny - 2) * params.nx;
     const float density_mul_accel = params.density * params.accel;
 
     err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting accelerate_flow arg 0", __LINE__);
@@ -221,9 +219,8 @@ int main(int argc, char* argv[]) {
     err = clSetKernelArg(ocl.accelerate_flow, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting accelerate_flow arg 7", __LINE__);
     err = clSetKernelArg(ocl.accelerate_flow, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting accelerate_flow arg 8", __LINE__);
     err = clSetKernelArg(ocl.accelerate_flow, 9, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 9", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 10, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 10", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 11, sizeof(cl_int), &second_row); checkError(err, "setting accelerate_flow arg 11", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 12, sizeof(cl_float), &density_mul_accel); checkError(err, "setting accelerate_flow arg 12", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 10, sizeof(cl_int), &second_row); checkError(err, "setting accelerate_flow arg 10", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 11, sizeof(cl_float), &density_mul_accel); checkError(err, "setting accelerate_flow arg 11", __LINE__);
 
     err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting timestep arg 0", __LINE__);
     err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting timestep arg 1", __LINE__);

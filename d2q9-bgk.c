@@ -260,6 +260,7 @@ int main(int argc, char* argv[]) {
 
     float *av_vels_temp = malloc(sizeof(float) * params.maxIters * params.num_work_groups);
     err = clEnqueueReadBuffer(ocl.queue, ocl.av_vels_global, CL_TRUE, 0, sizeof(float) * params.num_work_groups * params.maxIters, av_vels_temp, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
+    #pragma omp parallel for
     for (int i = 0; i < params.maxIters; i++) {
         av_vels[i] = 0.0f;
         for (int j = 0; j < params.num_work_groups; j++) {

@@ -8,6 +8,7 @@
 #SBATCH --account COSC026662
 #SBATCH --output d2q9-bgk.out
 #SBATCH --exclusive
+#SBATCH --exclude gpu03
 
 echo Running on host `hostname`
 echo Time is `date`
@@ -18,6 +19,7 @@ echo `echo $SLURM_JOB_NODELIST | uniq`
 echo GPU number: $CUDA_VISIBLE_DEVICES
 
 export OCL_DEVICE=1
+export OMP_NUM_THREADS=28
 
 #! Run the executable
 ./d2q9-bgk input_128x128.params obstacles_128x128.dat

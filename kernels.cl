@@ -135,19 +135,19 @@ __kernel void timestep(
     const int y_group_id = get_group_id(0);
     const int x_group_id = get_group_id(1);
 
-    int local_index = x_local_id + y_local_id * nx_local;
-    int group_index = x_group_id + y_group_id * nx_group;
+    const int local_index = x_local_id + y_local_id * nx_local;
+    const int group_index = x_group_id + y_group_id * nx_group;
 
     av_vels_local[local_index] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
 
-    barrier(CLK_LOCAL_MEM_FENCE);
-    if (local_index == 0) {
-        float sum = 0.0f;
-
-        for (int i = 0; i < ny_local * nx_local; i++) {
-            sum += av_vels_local[i];
+    for (int offset = (nx_local * ny_local) >> 1; offset > 0; offset >>= 1) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        if (local_index < offset) {
+            av_vels_local[local_index] += av_vels_local[local_index + offset];
         }
+    }
 
-        av_vels_global[tt * (ny_group * nx_group) + group_index] = sum;
+    if (local_index == 0) {
+        av_vels_global[tt * (ny_group * nx_group) + group_index] = av_vels_local[0];
     }
 }

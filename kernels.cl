@@ -2,18 +2,6 @@
 
 #define NSPEEDS 9
 
-typedef struct {
-  float* restrict speeds_0;
-  float* restrict speeds_1;
-  float* restrict speeds_2;
-  float* restrict speeds_3;
-  float* restrict speeds_4;
-  float* restrict speeds_5;
-  float* restrict speeds_6;
-  float* restrict speeds_7;
-  float* restrict speeds_8;
-} t_speed;
-
 __kernel void accelerate_flow(
     __global float* restrict cells_speeds_0,
     __global float* restrict cells_speeds_1,
@@ -24,28 +12,24 @@ __kernel void accelerate_flow(
     __global float* restrict cells_speeds_6,
     __global float* restrict cells_speeds_7,
     __global float* restrict cells_speeds_8,
-    __global int* restrict obstacles,
-    int nx,
-    int ny,
-    float density,
-    float accel) {
+    __global const int* restrict obstacles,
+    const int nx,
+    const int jj,
+    const float density_mul_accel) {
 
     /* compute weighting factors */
-    float w1 = density * accel / 9.0;
-    float w2 = density * accel / 36.0;
-
-    /* modify the 2nd row of the grid */
-    int jj = ny - 2;
+    const float w1 = density_mul_accel / 9.0;
+    const float w2 = density_mul_accel / 36.0;
 
     /* get column index */
-    int ii = get_global_id(0);
+    const int ii = get_global_id(0);
 
     /* if the cell is not occupied and
     ** we don't send a negative density */
     if (!obstacles[ii + jj* nx] 
-        && (cells_speeds_3[ii + jj * nx] - w1) > 0.f
-        && (cells_speeds_6[ii + jj * nx] - w2) > 0.f
-        && (cells_speeds_7[ii + jj * nx] - w2) > 0.f) {
+        && (cells_speeds_3[ii + jj * nx]) > w1
+        && (cells_speeds_6[ii + jj * nx]) > w2
+        && (cells_speeds_7[ii + jj * nx]) > w2) {
 
         /* increase 'east-side' densities */
         cells_speeds_1[ii + jj * nx] += w1;
@@ -68,13 +52,13 @@ __kernel void timestep(
     __global float* restrict cells_speeds_6,
     __global float* restrict cells_speeds_7,
     __global float* restrict cells_speeds_8,
-    __global int* restrict obstacles,
+    __global const int* restrict obstacles,
     __local float* restrict av_vels_local,
     __global float* restrict av_vels_global,
-    int nx,
-    int ny,
-    float omega,
-    int tt
+    const int nx,
+    const int ny,
+    const float omega,
+    const int tt
     ) {
 
     const float c_sq_r = 3.f;

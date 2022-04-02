@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < params.maxIters; i++) {
         av_vels[i] = 0.0f;
         for (int j = 0; j < params.num_work_groups; j++) {
-            av_vels[i] += av_vels_temp[i * (NX_LOCAL * NY_LOCAL) + j];
+            av_vels[i] += av_vels_temp[i * params.num_work_groups + j];
         }
         av_vels[i] *= params.num_non_obstacles_r;
     }

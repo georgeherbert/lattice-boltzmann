@@ -67,8 +67,8 @@
 #define FINALSTATEFILE "final_state.dat"
 #define AVVELSFILE "av_vels.dat"
 #define OCLFILE "kernels.cl"
-#define NX_LOCAL 32
-#define NY_LOCAL 32
+#define NX_LOCAL 16
+#define NY_LOCAL 16
 
 /* struct to hold the parameter values */
 typedef struct {
@@ -80,6 +80,7 @@ typedef struct {
     float accel; /* density redistribution */
     float omega; /* relaxation parameter */
     float num_non_obstacles_r;
+    int num_work_groups;
 } t_param;
 
 /* struct to hold OpenCL objects */
@@ -103,6 +104,7 @@ typedef struct {
     cl_mem cells_speeds_8;
     cl_mem obstacles;
     cl_mem av_vels_global;
+
 } t_ocl;
 
 /* struct to hold the 'speed' values */
@@ -129,7 +131,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 /*
 ** The main calculation methods.
 */
-float timestep(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
+void timestep(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl, int tt);
 int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
@@ -206,21 +208,39 @@ int main(int argc, char* argv[]) {
     err = clEnqueueWriteBuffer( ocl.queue, ocl.obstacles, CL_TRUE, 0, sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
     checkError(err, "writing obstacles data", __LINE__);
 
-    err = clSetKernelArg(ocl.accelerate_flow, 9, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 1", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 10, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 2", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 11, sizeof(cl_int), &params.ny); checkError(err, "setting accelerate_flow arg 3", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 12, sizeof(cl_float), &params.density); checkError(err, "setting accelerate_flow arg 4", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 13, sizeof(cl_float), &params.accel); checkError(err, "setting accelerate_flow arg 5", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting accelerate_flow arg 0", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting accelerate_flow arg 1", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_mem), &ocl.cells_speeds_2); checkError(err, "setting accelerate_flow arg 2", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_mem), &ocl.cells_speeds_3); checkError(err, "setting accelerate_flow arg 3", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_mem), &ocl.cells_speeds_4); checkError(err, "setting accelerate_flow arg 4", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_mem), &ocl.cells_speeds_5); checkError(err, "setting accelerate_flow arg 5", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 6, sizeof(cl_mem), &ocl.cells_speeds_6); checkError(err, "setting accelerate_flow arg 6", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting accelerate_flow arg 7", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting accelerate_flow arg 8", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 9, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting accelerate_flow arg 9", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 10, sizeof(cl_int), &params.nx); checkError(err, "setting accelerate_flow arg 10", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 11, sizeof(cl_int), &params.ny); checkError(err, "setting accelerate_flow arg 11", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 12, sizeof(cl_float), &params.density); checkError(err, "setting accelerate_flow arg 12", __LINE__);
+    err = clSetKernelArg(ocl.accelerate_flow, 13, sizeof(cl_float), &params.accel); checkError(err, "setting accelerate_flow arg 13", __LINE__);
 
-    err = clSetKernelArg(ocl.timestep, 9, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 2", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 10, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 3", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 11, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 4", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 12, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 5", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 13, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 6", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 14, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 7", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting timestep arg 0", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting timestep arg 1", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.cells_speeds_2); checkError(err, "setting timestep arg 2", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_mem), &ocl.cells_speeds_3); checkError(err, "setting timestep arg 3", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.cells_speeds_4); checkError(err, "setting timestep arg 4", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_mem), &ocl.cells_speeds_5); checkError(err, "setting timestep arg 5", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_mem), &ocl.cells_speeds_6); checkError(err, "setting timestep arg 6", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting timestep arg 7", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting timestep arg 8", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 9, sizeof(cl_mem), &ocl.obstacles); checkError(err, "setting timestep arg 9", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 10, sizeof(cl_float) * NX_LOCAL * NY_LOCAL, NULL); checkError(err, "setting timestep arg 10", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 11, sizeof(cl_mem), &ocl.av_vels_global); checkError(err, "setting timestep arg 11", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 12, sizeof(cl_int), &params.nx); checkError(err, "setting timestep arg 12", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 13, sizeof(cl_int), &params.ny); checkError(err, "setting timestep arg 13", __LINE__);
+    err = clSetKernelArg(ocl.timestep, 14, sizeof(cl_float), &params.omega); checkError(err, "setting timestep arg 14", __LINE__);
 
     for (int tt = 0; tt < params.maxIters; tt++) {
-        av_vels[tt] = timestep(params, cells, obstacles, ocl);
+        timestep(params, cells, obstacles, ocl, tt);
 #ifdef DEBUG
         printf("==timestep: %d==\n", tt);
         printf("av velocity: %.12E\n", av_vels[tt]);
@@ -237,6 +257,17 @@ int main(int argc, char* argv[]) {
     err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_6, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_6, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
     err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_7, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_7, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
     err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_8, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_8, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
+
+    float *av_vels_temp = malloc(sizeof(float) * params.maxIters * params.num_work_groups);
+    err = clEnqueueReadBuffer(ocl.queue, ocl.av_vels_global, CL_TRUE, 0, sizeof(float) * params.num_work_groups * params.maxIters, av_vels_temp, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
+    for (int i = 0; i < params.maxIters; i++) {
+        av_vels[i] = 0.0f;
+        for (int j = 0; j < params.num_work_groups; j++) {
+            av_vels[i] += av_vels_temp[i * 64 + j];
+        }
+        av_vels[i] *= params.num_non_obstacles_r;
+    }
+    free(av_vels_temp);
 
     /* Compute time stops here, collate time starts*/
     gettimeofday(&timstr, NULL);
@@ -263,51 +294,19 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
 }
 
-float timestep(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl) {
+void timestep(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl, int tt) {
     cl_int err;
 
     // Accelerate flow
-    err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_mem), &ocl.cells_speeds_2); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_mem), &ocl.cells_speeds_3); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_mem), &ocl.cells_speeds_4); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_mem), &ocl.cells_speeds_5); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 6, sizeof(cl_mem), &ocl.cells_speeds_6); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-    err = clSetKernelArg(ocl.accelerate_flow, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting accelerate_flow arg 0", __LINE__);
-
     size_t global_accelerate_flow[1] = {params.nx};
     err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow, 1, NULL, global_accelerate_flow, NULL, 0, NULL, NULL); checkError(err, "enqueueing accelerate_flow kernel", __LINE__);
     // err = clFinish(ocl.queue); checkError(err, "waiting for accelerate_flow kernel", __LINE__);
 
     // Timestep
-    err = clSetKernelArg(ocl.timestep, 0, sizeof(cl_mem), &ocl.cells_speeds_0); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 1, sizeof(cl_mem), &ocl.cells_speeds_1); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 2, sizeof(cl_mem), &ocl.cells_speeds_2); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 3, sizeof(cl_mem), &ocl.cells_speeds_3); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 4, sizeof(cl_mem), &ocl.cells_speeds_4); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 5, sizeof(cl_mem), &ocl.cells_speeds_5); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 6, sizeof(cl_mem), &ocl.cells_speeds_6); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 7, sizeof(cl_mem), &ocl.cells_speeds_7); checkError(err, "setting timestep arg 0", __LINE__);
-    err = clSetKernelArg(ocl.timestep, 8, sizeof(cl_mem), &ocl.cells_speeds_8); checkError(err, "setting timestep arg 0", __LINE__);
     size_t global_timestep[2] = {params.nx, params.ny};
     size_t local_timestep[2] = {NX_LOCAL, NY_LOCAL};
+    err = clSetKernelArg(ocl.timestep, 15, sizeof(cl_int), &tt); checkError(err, "setting timestep arg 15", __LINE__);
     err = clEnqueueNDRangeKernel(ocl.queue, ocl.timestep, 2, NULL, global_timestep, local_timestep, 0, NULL, NULL); checkError(err, "enqueueing timestep kernel", __LINE__);
-    // err = clFinish(ocl.queue); checkError(err, "waiting for timestep kernel", __LINE__);
-    float* local_sum = malloc(sizeof(float) * ((params.nx * params.ny) / (NX_LOCAL * NY_LOCAL)));
-    err = clEnqueueReadBuffer(ocl.queue, ocl.av_vels_global, CL_TRUE, 0, sizeof(float) * ((params.nx * params.ny) / (NX_LOCAL * NY_LOCAL)), local_sum, 0, NULL, NULL); checkError(err, "Reading back av_vels_global", __LINE__);
-
-    float av_vels = 0.0f;
-
-    for (int i = 0; i < (params.nx * params.ny) / (NX_LOCAL * NY_LOCAL); i++) {
-        av_vels += local_sum[i];
-        // printf("%f\n", av_vels);
-    }
-
-    free(local_sum);
-
-    return av_vels * params.num_non_obstacles_r;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles) {
@@ -370,6 +369,8 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     retval = fscanf(fp, "%f\n", &(params->accel)); if (retval != 1) die("could not read param file: accel", __LINE__, __FILE__);
     retval = fscanf(fp, "%f\n", &(params->omega)); if (retval != 1) die("could not read param file: omega", __LINE__, __FILE__);
     fclose(fp);
+
+    params->num_work_groups = (params->nx * params->ny) / (NX_LOCAL * NY_LOCAL);
 
     /* main grid */
     *cells_ptr = (t_speed*)malloc(sizeof(float*) * NSPEEDS);
@@ -503,7 +504,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     ocl->cells_speeds_8 = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(float) * params->nx * params->ny, NULL, &err); checkError(err, "creating cells buffer", __LINE__);
     ocl->obstacles = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_int) * params->nx * params->ny, NULL, &err);
     checkError(err, "creating obstacles buffer", __LINE__);
-    ocl->av_vels_global = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_float) * ((params->nx * params->ny) / (NX_LOCAL * NY_LOCAL)), NULL, &err);
+    ocl->av_vels_global = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE, sizeof(cl_float) * params->num_work_groups * params->maxIters, NULL, &err);
     checkError(err, "creating av_vels_global buffer", __LINE__);
 
     return EXIT_SUCCESS;

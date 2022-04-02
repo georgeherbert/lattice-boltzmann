@@ -73,7 +73,9 @@ __kernel void timestep(
     __global float* restrict av_vels_global,
     int nx,
     int ny,
-    float omega) {
+    float omega,
+    int tt
+    ) {
 
     const float c_sq_r = 3.f;
     const float two_c_sq_r = 1.5f;
@@ -139,14 +141,13 @@ __kernel void timestep(
     av_vels_local[local_index] = obstacles[ii + jj * nx] ? 0 : sqrt(u_sq);
 
     barrier(CLK_LOCAL_MEM_FENCE);
-
-    if (x_local_id == 0 && y_local_id == 0) {
+    if (local_index == 0) {
         float sum = 0.0f;
 
         for (int i = 0; i < ny_local * nx_local; i++) {
             sum += av_vels_local[i];
         }
 
-        av_vels_global[group_index] = sum;
+        av_vels_global[tt * (ny_group * nx_group) + group_index] = sum;
     }
 }

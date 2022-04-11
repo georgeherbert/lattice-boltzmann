@@ -26,9 +26,107 @@
 \maketitle
 
 \begin{abstract}
-    \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
-    This report analyses the techniques I utilised to further parallelise \texttt{d2q9-bgk.c} with MPI.
+  \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
+  This report analyses the techniques I utilised to parallelise \texttt{d2q9-bgk.c} with MPI, and port \texttt{d2q9-bgk.c} to a GPU with OpenCL.
 \end{abstract}
+
+\section{Single Program, Multiple Data}
+
+Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
+Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
+
+\subsection{Hypothesis}
+
+In my OpenMP implementation, I achieved a substantial performance improvement with 28 threads.
+This was primarily because each thread ran on one core of a single BC4 compute node; therefore, 28 iterations of the inner loop in the \texttt{timestep} function executed in parallel.
+However, OpenMP was designed for shared-memory parallelism, and so was unable to utilise more than one node of BC4, which was a severe restriction considering BC4 contained hundreds of nodes.
+Therefore, I hypothesised an implementation of \texttt{d2q9-bgk.c} that used MPI to run on multiple processes across multiple nodes of BC4 in parallel would provide a more substantial performance improvement than the OpenMP implementation.
+
+\subsection{Implementation}
+
+I opted to use my final implementation of \texttt{d2q9-bgk.c} before single instruction, multiple data (SIMD) vectorization as a starting point.
+
+\subsection{Results}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the 52 process MPI implementation and speedup over both the prior and 28 thread OpenMP implementation}\label{tab:mpi}
+  \begin{tabular}[t]{l | l  l  l} 
+      \hline\hline
+      &&\multicolumn{2}{c}{Speedup}\\
+      \cline{3-4}
+      Grid Size&Time (s)&Prior&OpenMP\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute node---a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+
+\section{Experiments}
+
+Having produced an SPMD implementation of \texttt{d2q9-bgk.c} with distributed memory parallelism, I ran several experiments to further optimise my program.
+
+\subsection{Vectorization}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the first vectorization option and speedup over the prior implementation}\label{tab:vectorization_1}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the second vectorization option and speedup over the prior implementation}\label{tab:vectorization_2}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\section{Hybrid MPI and OpenMP}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the hybrid implementation and speedup over the prior implementation}\label{tab:hybrid}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\section{GPU Programming}
+
+\section{Conclusion}
 
 \printbibliography
 

@@ -37,14 +37,27 @@ Message Passing Interface (MPI) is a specification for a library interface for p
 
 \subsection{Hypothesis}
 
-In my OpenMP implementation, I achieved a substantial performance improvement with 28 threads.
+In my OpenMP implementation, I achieved a substantial performance improvement utilising 28 threads.
 This was primarily because each thread ran on one core of a single BC4 compute node; therefore, 28 iterations of the inner loop in the \texttt{timestep} function executed in parallel.
-However, OpenMP was designed for shared-memory parallelism, and so was unable to utilise more than one node of BC4, which was a severe restriction considering BC4 contained hundreds of nodes.
-Therefore, I hypothesised an implementation of \texttt{d2q9-bgk.c} that used MPI to run on multiple processes across multiple nodes of BC4 in parallel would provide a more substantial performance improvement than the OpenMP implementation.
+However, OpenMP was designed for shared-memory parallelism, and so was unable to utilise more than one node of BC4, which was a severe restriction considering BC4 contains hundreds of nodes.
+Therefore, I hypothesised an implementation of \texttt{d2q9-bgk.c} that used MPI to run on multiple processes across multiple nodes of BC4 in parallel would provide an even more substantial performance improvement.
 
 \subsection{Implementation}
 
 I opted to use my final implementation of \texttt{d2q9-bgk.c} before single instruction, multiple data (SIMD) vectorization as a starting point.
+
+Since the grid of cells was in row-major order, I opted to split the grid horizontally between processes.
+I created a procedure \texttt{allocate\_rows} to balance the load; the procedure assigned each process at least $\lfloor\frac{y}{n}\rfloor$ consecutive rows, with the first $y - \lfloor\frac{y}{n}\rfloor n$ processes each assigned an additional row, where $y$ was the number of rows and $n$ the number of processes.
+This was the most equal way to allocate cells to processes without splitting on a sub-row level, which I decided against to avoid increasing the complexity of my program and incurring an additional computational overhead.
+Additionally, since updating the value of a given cell required the values of all adjacent cells, each process contained two additional rows reserved for cells in the top and bottom rows of the preceding and succeeding ranks, respectively.
+
+Since processes have their own memory space, I had to explicitly send the contents of cells between processes.
+To do so, I created a \texttt{halo\_exchange} procedure, in which I implemented a halo exchange.
+More specifically, at the end of each timestep, the bottom-most row allocated to each process was copied into the \texttt{send\_row\_buffer} array.
+I used the \texttt{MPI\_Sendrecv} procedure to send this buffer to the \texttt{receive\_row\_buffer} of the preceding rank.
+The same process was then repeated for the top-most row, which was sent to the succeeding rank.
+
+To compute the average velocities at each timestep.
 
 \subsection{Results}
 
@@ -70,13 +83,22 @@ Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute nod
 
 \section{Experiments}
 
-Having produced an SPMD implementation of \texttt{d2q9-bgk.c} with distributed memory parallelism, I ran several experiments to further optimise my program.
-
 \subsection{Vectorization}
 
+I hypothesised that SIMD vectorization of the inner loop would drastically improve the performance of my MPI implementation, as it did with my serial optimised implementation previously.
+Therefore, I made the same changes as I did with my serial optimised implementation, including converting the cells' data from an array of structures (AoS) to a structure of arrays (SoA) format.
+However, the SoA format meant that the \texttt{halo\_exchange} procedure had to be altered since the \texttt{MPI\_Sendrecv} procedure required the address of a single buffer as input.
+
+I experimented with two separate approaches to send a row in the \texttt{halo\_exchange} procedure.
+The first approach involved nine separate calls to the \texttt{MPI\_Sendrecv procedure}, one for each of the nine arrays in the SoA.
+The second approach involved copying the cells' values in each of the nine arrays into a large buffer, followed by a single call to the \texttt{MPI\_Sendrecv} procedure.
+
+Table \ref{tab:vectorization_1} and Table \ref{tab:vectorization_2} display the results for the first and second approach, respectively.
+The second approach was significantly faster, since the overhead introduced by nine separate calls to the \texttt{MPI\_Sendrecv} procedure was larger than the overhead introduced by copying the values within the nine arrays into a single buffer.
+
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the first vectorization option and speedup over the prior implementation}\label{tab:vectorization_1}
+  \caption{Execution times with the first vectorization approach and speedup over the prior implementation}\label{tab:vectorization_1}
   \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -92,7 +114,7 @@ Having produced an SPMD implementation of \texttt{d2q9-bgk.c} with distributed m
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the second vectorization option and speedup over the prior implementation}\label{tab:vectorization_2}
+  \caption{Execution times with the second vectorization approach and speedup over the prior implementation}\label{tab:vectorization_2}
   \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -106,7 +128,9 @@ Having produced an SPMD implementation of \texttt{d2q9-bgk.c} with distributed m
   \end{center}
 \end{table}
 
-\section{Hybrid MPI and OpenMP}
+\subsection{Hybrid MPI and OpenMP}
+
+I also decided to experiment with a hybrid MPI and OpenMP implementation.
 
 \begin{table}[htbp]
   \begin{center}
@@ -124,7 +148,49 @@ Having produced an SPMD implementation of \texttt{d2q9-bgk.c} with distributed m
   \end{center}
 \end{table}
 
+\subsection{OpenMP vs MPI}
+
+\subsection{Scaling}
+
+\section{Comparison to Serial}
+
 \section{GPU Programming}
+
+\subsection{Original Code}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the OpenCL implementation and speedup over the serial implementation}\label{tab:OpenCL_1}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\subsection{Optimisations}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the OpenCL implementation and speedup over the prior implementation}\label{tab:OpenCL_2}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{}&\texttt{}\\
+      $128 \times 256$&\texttt{}&\texttt{}\\
+      $256 \times 256$&\texttt{}&\texttt{}\\
+      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
 
 \section{Conclusion}
 

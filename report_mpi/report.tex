@@ -37,25 +37,37 @@ Message Passing Interface (MPI) is a specification for a library interface for p
 
 \subsection{Hypothesis}
 
-In my OpenMP implementation, I achieved a substantial performance improvement utilising 28 threads.
-This was primarily because each thread ran on one core of a single BC4 compute node; therefore, 28 iterations of the inner loop in the \texttt{timestep} function executed in parallel.
-However, OpenMP was designed for shared-memory parallelism, and so was unable to utilise more than one node of BC4, which was a severe restriction considering BC4 contains hundreds of nodes.
-Therefore, I hypothesised an implementation of \texttt{d2q9-bgk.c} that used MPI to run on multiple processes across multiple nodes of BC4 in parallel would provide an even more substantial performance improvement.
+I previously achieved a substantial performance improvement parallelising sections of my code with OpenMP.
+The most notable improvement came from executing 28 iterations of the inner loop in the \texttt{timestep} function in parallel.
+To accomplish this, OpenMP launched 28 threads, each of which ran on one of the 28 cores of a BC4 compute node.
+Naturally, I conjectured that an even greater performance improvement could be achieved by utilising more than 28 cores.
+However, OpenMP was designed for shared-memory parallelism, and so was restricted to a single node---a considerable restriction considering BC4 contained hundreds of nodes.
+Therefore, I hypothesised that I could use the Intel MPI Library to execute \texttt{d2q9-bgk.c} on multiple processes across multiple nodes in parallel, which would provide an even more significant performance improvement.
 
 \subsection{Implementation}
 
-I opted to use my final implementation of \texttt{d2q9-bgk.c} before single instruction, multiple data (SIMD) vectorization as a starting point.
+I selected to use the final implementation of my program before single instruction, multiple data (SIMD) vectorization as my starting point.
 
-Since the grid of cells was in row-major order, I opted to split the grid horizontally between processes.
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=.75\linewidth]{rows.png}
+  \caption{Row allocation example with five rows and two processes}\label{fig:rows}
+\end{figure}
+
+Since the \texttt{cells} grid was stored in row-major order, I chose to split the grid horizontally between processes to take advantage of memory locality.
 I created a procedure \texttt{allocate\_rows} to balance the load; the procedure assigned each process at least $\lfloor\frac{y}{n}\rfloor$ consecutive rows, with the first $y - \lfloor\frac{y}{n}\rfloor n$ processes each assigned an additional row, where $y$ was the number of rows and $n$ the number of processes.
 This was the most equal way to allocate cells to processes without splitting on a sub-row level, which I decided against to avoid increasing the complexity of my program and incurring an additional computational overhead.
 Additionally, since updating the value of a given cell required the values of all adjacent cells, each process contained two additional rows reserved for cells in the top and bottom rows of the preceding and succeeding ranks, respectively.
+Figure \ref{fig:rows} displays an example allocation for a grid with five rows, split between two processes; the rows allocated to a specific process are highlighted in green, with additional rows required to correctly updated the edge rows highlighted in red.
 
 Since processes have their own memory space, I had to explicitly send the contents of cells between processes.
-To do so, I created a \texttt{halo\_exchange} procedure, in which I implemented a halo exchange.
+To do so, I created a \texttt{halo\_exchange} procedure.
 More specifically, at the end of each timestep, the bottom-most row allocated to each process was copied into the \texttt{send\_row\_buffer} array.
 I used the \texttt{MPI\_Sendrecv} procedure to send this buffer to the \texttt{receive\_row\_buffer} of the preceding rank.
 The same process was then repeated for the top-most row, which was sent to the succeeding rank.
+
+After all iterations have been complete, each process (with the exception of rank zero) sends the final state of its \texttt{cells} grid section to rank zero with the \texttt{MPI\_Send} procedure.
+Rank zero receives each section using the \texttt{MPI\_Recv} procedure.
 
 To compute the average velocities at each timestep.
 

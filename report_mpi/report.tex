@@ -142,7 +142,8 @@ The second approach was significantly faster, since the overhead introduced by n
 
 \subsection{Hybrid MPI and OpenMP}
 
-I also decided to experiment with a hybrid MPI and OpenMP implementation.
+I also experimented with a hybrid MPI and OpenMP implementation.
+In this implementation, each of the four compute nodes contained a single process.
 
 \begin{table}[htbp]
   \begin{center}
@@ -162,7 +163,73 @@ I also decided to experiment with a hybrid MPI and OpenMP implementation.
 
 \subsection{OpenMP vs MPI}
 
+\begin{figure}[htpb]
+  \centering
+  \resizebox{\columnwidth}{!}{
+    \begin{tikzpicture}
+      \begin{axis}[
+        xlabel={Number of Threads},
+        ylabel={Speedup},
+        xmin = 1, xmax = 28,
+        ymin = 1,
+        % xtick={0, 5, 10, 15, 20, 25},
+        % ytick={0,20,40,60,80,100,120},
+        legend pos=north west,
+        ymajorgrids=true,
+        grid style=dashed,
+        minor xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}
+      ]
+      \addlegendentry{OpenMP}
+      \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x]coordinates{
+        (1, 1.0)
+        (2, 1.7525169788462858)
+      };
+      \addlegendentry{MPI}
+      \addplot[color = {rgb:red,255;green,127;blue,14}, mark = x]coordinates{
+      };
+      \end{axis}
+    \end{tikzpicture}
+  }
+  \caption{Speedup curves for my OpenMP and MPI implementation on the $1024\times1024$ grid}\label{fig:scaling_openmp_mpi}
+\end{figure}
+
 \subsection{Scaling}
+
+\begin{figure}[htpb]
+  \centering
+  \resizebox{\columnwidth}{!}{
+    \begin{tikzpicture}
+      \begin{axis}[
+        xlabel={Number of Threads},
+        ylabel={Speedup},
+        xmin = 1, xmax = 112,
+        ymin = 1,
+        % xtick={0, 5, 10, 15, 20, 25},
+        % ytick={0,20,40,60,80,100,120},
+        legend pos=north west,
+        ymajorgrids=true,
+        grid style=dashed,
+        minor xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112}
+      ]
+      \addlegendentry{$128\times128$}
+      \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x]coordinates{
+        (1, 1.0)
+        (2, 1.7525169788462858)
+      };
+      \addlegendentry{$128\times256$}
+      \addplot[color = {rgb:red,255;green,127;blue,14}, mark = x]coordinates{
+      };
+      \addlegendentry{$256\times256$}
+      \addplot[color = {rgb:red,44;green,160;blue,44}, mark = x]coordinates{
+      };
+      \addlegendentry{$1024\times1024$}
+      \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x]coordinates{
+      };
+      \end{axis}
+    \end{tikzpicture}
+  }
+  \caption{Speedup curves for my MPI implementation}\label{fig:scaling}
+\end{figure}
 
 \section{Comparison to Serial}
 

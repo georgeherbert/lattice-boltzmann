@@ -235,6 +235,12 @@ In this implementation, each of the four compute nodes contained a single proces
 
 \section{GPU Programming}
 
+GPUs typically have 3--5x the memory bandwidth, and 5--10x the peak FLOP/s that CPUs have.
+This is true for BC4, in which the Nvidia Pascal P100 has 4.8x the memory bandwidth and 9.8x the performance that the Intel E5-2680 v4 has.
+OpenCL is a framework for heterogeneous computing that can be used for GPU programming.
+
+I sought to identify whether I could produce an implementation of LBM in OpenCL to run on a single GPU in BCP4 that would be faster than my MPI implementation on one node.
+
 \subsection{Original Code}
 
 \begin{table}[htbp]

@@ -1,15 +1,16 @@
 #!/bin/bash
 
 #SBATCH --job-name d2q9-bgk
-#SBATCH --nodes 1
-#SBATCH --ntasks-per-node 1
-#SBATCH --cpus-per-task 28
+#SBATCH --nodes 4
+#SBATCH --ntasks 40
+#SBATCH --cpus-per-task 1
 #SBATCH --time 00:30:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
 #SBATCH --output d2q9-bgk.out
-#SBATCH --exclude=compute100
+#SBATCH --nodelist=compute106,compute107,compute108,compute110
+#SBATCH --exclusive
 
 echo Running on host `hostname`
 echo Time is `date`
@@ -18,15 +19,6 @@ echo Slurm job ID is $SLURM_JOB_ID
 echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
-export OMP_NUM_THREADS=28
-export OMP_PROC_BIND=true
-export OMP_PLACES=cores
-
 #! Run the executable
-#./d2q9-bgk input_128x128.params obstacles_128x128.dat
-#./d2q9-bgk input_128x256.params obstacles_128x256.dat
-#./d2q9-bgk input_256x256.params obstacles_256x256.dat
-#./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
-
-advixe-cl --collect=roofline ./d2q9-bgk input_128x128.params obstacles_128x128.dat
-#advixe-cl --collect=roofline ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+mpirun -gtool "advixe-cl -collect survey -project-dir mpi_roofline:0" ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+mpirun -gtool "advixe-cl -collect tripcounts -flop --enable-cache-simulation -project-dir mpi_roofline:0" ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat

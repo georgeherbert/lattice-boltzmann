@@ -3,8 +3,8 @@ def get_times_lines():
     small_2_times_lines = []
     medium_times_lines = []
     big_times_lines = []
-    for thread in range(1, 29):
-        with open(f"d2q9-bgk_threads/d2q9-bgk_{thread}.out") as file:
+    for thread in range(1, 113):
+        with open(f"d2q9-bgk_procs/d2q9-bgk_{thread}.out") as file:
             content = file.readlines()
             small_times_lines.append(content[11].strip())
             small_2_times_lines.append(content[17].strip())
@@ -22,8 +22,8 @@ def convert_to_float(times_lines):
 
 def print_scalings(times):
     smallest_time = times[0]
-    for time in times:
-        print(smallest_time / time)
+    for i, time in enumerate(times, start = 1):
+        print(f"({i}, {smallest_time / time})")
 
 def main():
     small_times_lines, small_2_times_lines, medium_times_lines, big_times_lines = get_times_lines()

@@ -443,11 +443,7 @@ void collate(const t_param* params, t_speed* cells, t_speed* cells_global, float
     }
 
     MPI_Reduce(av_vels, av_vels_global, params->maxIters, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
-    if (params->rank == MASTER) {
-        for (int tt = 0; tt < params->maxIters; tt++) {
-            av_vels_global[tt] *= params->num_non_obstacles_r;
-        }
-    }
+    if (params->rank == MASTER) for (int tt = 0; tt < params->maxIters; tt++) av_vels_global[tt] *= params->num_non_obstacles_r;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles) {

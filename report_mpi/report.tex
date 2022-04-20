@@ -32,21 +32,27 @@
 
 \section{Single Program, Multiple Data}
 
-Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
-Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
-
 \subsection{Hypothesis}
 
-I previously achieved a substantial performance improvement parallelising sections of my code with OpenMP.
-The most notable improvement came from executing 28 iterations of the inner loop in the \texttt{timestep} function in parallel.
-To accomplish this, OpenMP launched 28 threads, each of which ran on one of the 28 cores of a BC4 compute node.
-Naturally, I conjectured that an even greater performance improvement could be achieved by utilising more than 28 cores.
-However, OpenMP was designed for shared-memory parallelism, and so was restricted to a single node---a considerable restriction considering BC4 contained hundreds of nodes.
-Therefore, I hypothesised that I could use the Intel MPI Library to execute \texttt{d2q9-bgk.c} on multiple processes across multiple nodes in parallel, which would provide an even more significant performance improvement.
+I previously achieved a substantial performance improvement producing a multithreaded implementation of \texttt{d2q9-bgk.c} with OpenMP.
+However, since OpenMP was built for shared-memory parallelism, my implementation could not utilise more than one node of BC4, which was a considerable restriction.
 
-\subsection{Implementation}
+Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
+Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
+Therefore, I hypothessied that a parallel implementation of \texttt{d2q9-bgk.c} that ran on multiple processes across multiple nodes---with MPI being used for interprocess communication---would provide an even more substantial performance improvement.
 
-I selected to use the final implementation of my program before single instruction, multiple data (SIMD) vectorization as my starting point.
+I opted to use the implementation of my program prior to enforcing single instruction, multiple data (SIMD) vectorization as a starting point.
+I was uncertain the changes I previously implemented to enforce SIMD vectorization would provide a performance benefit to my MPI implementation.
+
+\subsection{Load Balancing}
+
+I had to explicitly assign different sections of the grid to different processes.
+It was crucial for the distribution to be adequately balanced to minimise the amount of time processes' spent blocked.
+
+Since the \texttt{cells} grid was stored in row-major order, I split the grid horizontally between processes to take advantage of memory locality.
+I created a procedure \texttt{allocate\_rows} to balance the load; the procedure assigned each process at least $\lfloor\frac{y}{n}\rfloor$ consecutive rows, with the first $y - \lfloor\frac{y}{n}\rfloor n$ processes each assigned an additional consecutive row, where $y$ was the number of rows and $n$ the number of processes.
+Additionally, since updating the value of a given cell required the values of all adjacent cells, each process contained two additional rows reserved for cells in the top and bottom rows of the preceding and succeeding ranks, respectively.
+Figure \ref{fig:rows} displays an example allocation for a grid with five rows, split between two processes; the rows allocated to a specific process are highlighted in green, with additional rows required to correctly updated the edge rows highlighted in red.
 
 \begin{figure}[htbp]
   \centering
@@ -54,22 +60,29 @@ I selected to use the final implementation of my program before single instructi
   \caption{Row allocation example with five rows and two processes}\label{fig:rows}
 \end{figure}
 
-Since the \texttt{cells} grid was stored in row-major order, I chose to split the grid horizontally between processes to take advantage of memory locality.
-I created a procedure \texttt{allocate\_rows} to balance the load; the procedure assigned each process at least $\lfloor\frac{y}{n}\rfloor$ consecutive rows, with the first $y - \lfloor\frac{y}{n}\rfloor n$ processes each assigned an additional row, where $y$ was the number of rows and $n$ the number of processes.
-This was the most equal way to allocate cells to processes without splitting on a sub-row level, which I decided against to avoid increasing the complexity of my program and incurring an additional computational overhead.
-Additionally, since updating the value of a given cell required the values of all adjacent cells, each process contained two additional rows reserved for cells in the top and bottom rows of the preceding and succeeding ranks, respectively.
-Figure \ref{fig:rows} displays an example allocation for a grid with five rows, split between two processes; the rows allocated to a specific process are highlighted in green, with additional rows required to correctly updated the edge rows highlighted in red.
+I decided against splitting on a sub-row level to avoid unnecessarily increasing the complexity of my program and incurring an additional computational overhead.
 
-Since processes have their own memory space, I had to explicitly send the contents of cells between processes.
+\subsection{Halo Exchange}
+
+Since processes are assigned their own virtual memory region, I had to explicitly send the contents of edge rows to neighbouring ranks at the conclusion of each timestep.
 To do so, I created a \texttt{halo\_exchange} procedure.
-More specifically, at the end of each timestep, the bottom-most row allocated to each process was copied into the \texttt{send\_row\_buffer} array.
+The procedure copied the bottom-most row allocated to each process into the \texttt{send\_row\_buffer} array.
 I used the \texttt{MPI\_Sendrecv} procedure to send this buffer to the \texttt{receive\_row\_buffer} of the preceding rank.
+The values in the \texttt{receive\_row\_buffer} were then copied into the top additional row.
 The same process was then repeated for the top-most row, which was sent to the succeeding rank.
 
-After all iterations have been complete, each process (with the exception of rank zero) sends the final state of its \texttt{cells} grid section to rank zero with the \texttt{MPI\_Send} procedure.
-Rank zero receives each section using the \texttt{MPI\_Recv} procedure.
+\subsection{Collating}
 
-To compute the average velocities at each timestep.
+I created a \texttt{collate} procedure to be executed once all iterations of the \texttt{timestep} procedure have been completed.
+The procedure had two purposes.
+The first purpose was to transfer the the final state of the cells allocated to each process to the master process (i.e. rank zero).
+The second purpose was to transfer the partial average velocity values to the master process, and use these values to calculate the correct average velocity at each timestep.
+
+I used the \texttt{MPI\_Send} procedure to transfer the final state of the cells allocated to each process to the master process.
+The master process received these values by executing the \texttt{MPI\_Recv} procedure once for each timestep.
+
+I used the \texttt{MPI\_Reduce} procedure to sum the partial average velocity values held by each process.
+Once the arrays had been summed, I multiplied each element by \texttt{params.num\_non\_obstacles\_r} in the master process to calculate the correct average velocity at each timestep.
 
 \subsection{Results}
 
@@ -93,7 +106,7 @@ To compute the average velocities at each timestep.
 
 Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute node---a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
 
-\section{Experiments}
+\section{Optimisations}
 
 \subsection{Vectorization}
 
@@ -139,6 +152,8 @@ The second approach was significantly faster, since the overhead introduced by n
     \end{tabular}
   \end{center}
 \end{table}
+
+\section{Experiments}
 
 \subsection{Hybrid MPI and OpenMP}
 
@@ -194,6 +209,11 @@ In this implementation, each of the four compute nodes contained a single proces
 \end{figure}
 
 \subsection{Scaling}
+
+I ran my final MPI implementation from 1--112 processes to analyse how my program scaled.
+My program ran on as few nodes as possible, such that each process was assigned to a single core. 
+I then calculated the subsequent processes' speedup over a single process implementation.
+Figure \ref{fig:scaling} displays the result speedup curves.
 
 \begin{figure}[htpb]
   \centering
@@ -676,6 +696,16 @@ In this implementation, each of the four compute nodes contained a single proces
   }
   \caption{Speedup curves for my MPI implementation}\label{fig:scaling}
 \end{figure}
+
+In general, my implementation initially scaled well for the smallest three grid sizes, but the speedup acquired from each subsequent process declined (i.e. a sublinear plateau), which occurred due to several reasons.
+Perfect linear scaling was theoretically impossible because the program contained serial sections.
+
+A different pattern emerged in the largest grid size.
+
+Notably, the amount of speedup provided by each next core was approximately inversely proportional to the test case size.
+In other words, larger grid sizes benefitted more from a multiprocess implementation than smaller grid sizes.
+Firstly, this was because the larger grids benefitted more from being split sufficiently small to fit into the faster cache levels.
+Secondly, the larger grid sizes were more evenly divided by the number of processes.
 
 \section{Comparison to Serial}
 

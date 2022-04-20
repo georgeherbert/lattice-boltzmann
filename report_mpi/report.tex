@@ -108,6 +108,24 @@ Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute nod
 
 \section{Optimisations}
 
+\subsection{Average Velocities Reduction}
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Collate times with the reduction and speedup over the prior implementation}\label{tab:reduction}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{0.0016}&\texttt{4.54}\\
+      $128 \times 256$&\texttt{0.0029}&\texttt{2.93}\\
+      $256 \times 256$&\texttt{0.0049}&\texttt{2.83}\\
+      $1024 \times 1024$&\texttt{0.0420}&\texttt{1.08}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
 \subsection{Vectorization}
 
 I hypothesised that SIMD vectorization of the inner loop would drastically improve the performance of my MPI implementation, as it did with my serial optimised implementation previously.

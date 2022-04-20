@@ -44,6 +44,11 @@ Therefore, I hypothessied that a parallel implementation of \texttt{d2q9-bgk.c} 
 I opted to use the implementation of my program prior to enforcing single instruction, multiple data (SIMD) vectorization as a starting point.
 I was uncertain the changes I previously implemented to enforce SIMD vectorization would provide a performance benefit to my MPI implementation.
 
+\subsection{Compiler}
+
+The only alteration I made to the complication process was using the \texttt{mpiicc} script.
+The wrapper script compiled my program with the Intel C Compiler Classic (version 19.1.3.304) and set up the include and library paths for the Intel MPI library.
+
 \subsection{Load Balancing}
 
 I had to explicitly assign different sections of the grid to different processes.
@@ -78,11 +83,12 @@ The procedure had two purposes.
 The first purpose was to transfer the the final state of the cells allocated to each process to the master process (i.e. rank zero).
 The second purpose was to transfer the partial average velocity values to the master process, and use these values to calculate the correct average velocity at each timestep.
 
-I used the \texttt{MPI\_Send} procedure to transfer the final state of the cells allocated to each process to the master process.
-The master process received these values by executing the \texttt{MPI\_Recv} procedure once for each timestep.
+I used the \texttt{MPI\_Send} procedure to send the final state of the cells allocated to each process to the master process.
+The master process received these values by executing the \texttt{MPI\_Recv} procedure once for each process.
 
-I used the \texttt{MPI\_Reduce} procedure to sum the partial average velocity values held by each process.
-Once the arrays had been summed, I multiplied each element by \texttt{params.num\_non\_obstacles\_r} in the master process to calculate the correct average velocity at each timestep.
+I also used the \texttt{MPI\_Send} procedure to send the partial average velocity values held by each process to the master process.
+The master process received these arrays of values one by one from each process using the \texttt{MPI\_Recv} procedure, and summed them into a global average velocities array.
+Once the arrays had been summed, the \texttt{colate} procedure multiplied each element by \texttt{params.num\_non\_obstacles\_r} in the master process to calculate the correct average velocity at each timestep.
 
 \subsection{Results}
 
@@ -107,24 +113,6 @@ Once the arrays had been summed, I multiplied each element by \texttt{params.num
 Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute node---a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
 
 \section{Optimisations}
-
-\subsection{Average Velocities Reduction}
-
-\begin{table}[htbp]
-  \begin{center}
-  \caption{Collate times with the reduction and speedup over the prior implementation}\label{tab:reduction}
-  \begin{tabular}[t]{l | l l} 
-      \hline\hline
-      Grid Size&Time (s)&Speedup\\
-      \hline
-      $128 \times 128$&\texttt{0.0016}&\texttt{4.54}\\
-      $128 \times 256$&\texttt{0.0029}&\texttt{2.93}\\
-      $256 \times 256$&\texttt{0.0049}&\texttt{2.83}\\
-      $1024 \times 1024$&\texttt{0.0420}&\texttt{1.08}\\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
 
 \subsection{Vectorization}
 
@@ -166,6 +154,30 @@ The second approach was significantly faster, since the overhead introduced by n
       $128 \times 256$&\texttt{}&\texttt{}\\
       $256 \times 256$&\texttt{}&\texttt{}\\
       $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+\subsection{Average Velocities Reduction}
+
+I hypothesised I could use the \texttt{MPI\_Reduce} procedure to reduce the collation time of my program.
+Table \ref{tab:reduction} contains the collation times for this implementation, and speedup over the prior implementation.
+Using \texttt{MPI\_Reduce} led to a significant reduction in collation time.
+However, this did not make a large difference to the overall execution time due to the collation time being so short compared to the compute time.
+I would expect a more significant impact on the overall exeuction time for inputs containing more iterations.
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Collate times with the reduction and speedup over the prior implementation}\label{tab:reduction}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{0.0016}&\texttt{4.54}\\
+      $128 \times 256$&\texttt{0.0029}&\texttt{2.93}\\
+      $256 \times 256$&\texttt{0.0049}&\texttt{2.83}\\
+      $1024 \times 1024$&\texttt{0.0420}&\texttt{1.08}\\
       \hline
     \end{tabular}
   \end{center}

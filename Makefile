@@ -3,8 +3,8 @@
 EXE=d2q9-bgk
 
 CC=mpiicc
-# CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX2
-CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX2 -qopenmp
+CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX2
+# CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX2 -qopenmp
 LIBS = -lm
 
 FINAL_STATE_FILE=./final_state.dat

@@ -174,8 +174,13 @@ I would expect a more significant impact on the overall exeuction time for input
 
 \subsection{Hybrid MPI and OpenMP}
 
-I also experimented with a hybrid MPI and OpenMP implementation.
-In this implementation, each of the four compute nodes contained a single process.
+I sought to investigate whether a hybrid implementation would execute faster than my prior implementation.
+Therefore, I produced an implementation of \texttt{d2q9-bgk.c} that ran with eight processes---one per socket across four nodes---communicating via MPI, with each process branching fourteen threads at specific points in the program.
+These specific points were identical to that in my OpenMP implementation: the outer loop in the \texttt{timestep} procedure, and the initialisation loops for the \texttt{obstacles} and \texttt{cells} arrays.
+
+Table \ref{tab:hybrid} displays the speedup over my prior implementation.
+I tested my program with an additional $2048 \times 2048$ grid, since the speedup was successively larger for the first four grid sizes, and I sought to identify whether the trend would continue.
+From Table \ref{tab:hybrid}, it is evident that the hybrid implementation executed faster for some grid sizes, but slower for others.
 
 \begin{table}[htbp]
   \begin{center}
@@ -184,10 +189,11 @@ In this implementation, each of the four compute nodes contained a single proces
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ 0.66}&\texttt{}\\
+      $128 \times 256$&\texttt{ 0.66}&\texttt{}\\
+      $256 \times 256$&\texttt{ 1.90}&\texttt{}\\
+      $1024 \times 1024$&\texttt{ 3.15}&\texttt{}\\
+      $2048 \times 2048$&\texttt{12.67}&\texttt{1.29}\\
       \hline
     \end{tabular}
   \end{center}

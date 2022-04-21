@@ -161,8 +161,9 @@ int main(int argc, char* argv[]) {
     double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
     MPI_Status status;
     int tag = 0;
+    int provided;
 
-    MPI_Init(&argc, &argv);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
     MPI_Comm_size(MPI_COMM_WORLD, &(params.size));
     MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
 
@@ -275,7 +276,7 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
     float tot_u = 0.f; /* accumulated magnitudes of velocity for each cell */
 
     /* loop over the cells in the grid */
-    // #pragma omp parallel for schedule(static), reduction(+:tot_u)
+    #pragma omp parallel for schedule(static), reduction(+:tot_u)
     for (int jj = 1; jj < params.num_rows + 1; jj++) {
         /* determine indices of north and south axis-direction neighbours 
         ** respecting periodic boundary conditions (wrap around) */
@@ -585,7 +586,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     float w1 = params->density / 9.f;
     float w2 = params->density / 36.f;
 
-    // #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static)
     for (int jj = 0; jj < params->num_rows + 2; jj++) {
         for (int ii = 0; ii < params->nx; ii++) {
             /* centre */
@@ -604,7 +605,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     }
 
     /* first set all cells in obstacle array to zero */
-    // #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static)
     for (int jj = 0; jj < params->num_rows + 2; jj++) {
         for (int ii = 0; ii < params->nx; ii++) {
             (*obstacles_ptr)[ii + jj * params->nx] = 0;

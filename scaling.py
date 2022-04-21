@@ -23,7 +23,8 @@ def convert_to_float(times_lines):
 def print_scalings(times):
     smallest_time = times[0]
     for i, time in enumerate(times, start = 1):
-        print(f"({i}, {smallest_time / time})")
+        # print(f"({i}, {smallest_time / time})")
+        print(smallest_time / time)
 
 def main():
     small_times_lines, small_2_times_lines, medium_times_lines, big_times_lines = get_times_lines()
@@ -31,9 +32,12 @@ def main():
     small_2_times = convert_to_float(small_2_times_lines)
     medium_times = convert_to_float(medium_times_lines)
     big_times = convert_to_float(big_times_lines)
-    # print_scalings(small_times)
-    # print_scalings(small_2_times)
-    # print_scalings(medium_times)
+    print_scalings(small_times)
+    print("")
+    print_scalings(small_2_times)
+    print("")
+    print_scalings(medium_times)
+    print("")
     print_scalings(big_times)
 
 

@@ -2,14 +2,14 @@
 
 #SBATCH --job-name d2q9-bgk
 #SBATCH --nodes 4
-#SBATCH --ntasks-per-node 28
-#SBATCH --cpus-per-task 1
+#SBATCH --ntasks-per-node 1
+#SBATCH --cpus-per-task 28
 #SBATCH --time 00:30:00
 #SBATCH --partition veryshort
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
 #SBATCH --output d2q9-bgk.out
-#SBATCH --exclude=compute100,compute104,compute105
+#SBATCH --nodelist=compute106,compute107,compute108,compute110
 #SBATCH --exclusive
 
 echo Running on host `hostname`
@@ -19,9 +19,10 @@ echo Slurm job ID is $SLURM_JOB_ID
 echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export OMP_NUM_THREADS=28
 export OMP_PROC_BIND=true
 export OMP_PLACES=cores
+export OMP_WAIT_POLICY=active
 export I_MPI_PIN_DOMAIN=omp
 
 #! Run the executable

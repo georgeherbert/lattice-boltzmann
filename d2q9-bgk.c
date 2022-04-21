@@ -105,8 +105,8 @@ typedef struct {
 
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr, 
-    int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_buffer, float** send_row_buffer, 
-    float** receive_row_buffer, float** send_section_buffer, float** receive_section_buffer, t_speed** cells_complete);
+    int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_global, float** send_row_buffer, 
+    float** receive_row_buffer, float** send_section_buffer, float** receive_section_buffer, t_speed** cells_global);
 
 /* allocates rows to the different processors */
 void allocate_rows(t_param* params);
@@ -116,13 +116,13 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
 float timestep(const t_param params, const t_speed* restrict cells, t_speed* restrict cells_new, const int* restrict obstacles);
 void halo_exchange(const t_param* params, t_speed* cells, float* send_row_buffer, float* receive_row_buffer, const int tag, MPI_Status* status);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
-void collate(const t_param* params, t_speed* cells, t_speed* cells_complete, float* send_section_buffer, 
-    float* receive_section_buffer, float* av_vels, float* av_vels_buffer, const int tag, MPI_Status* status);
+void collate(const t_param* params, t_speed* cells, t_speed* cells_global, float* send_section_buffer, 
+    float* receive_section_buffer, float* av_vels, float* av_vels_global, const int tag, MPI_Status* status);
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr, int** obstacles_ptr, int ** obstacles_output,
-    float** av_vels_ptr, float** av_vels_buffer, float** send_row_buffer, float** receive_row_buffer, float** send_section_buffer,
-    float** receive_section_buffer, t_speed** cells_complete);
+    float** av_vels_ptr, float** av_vels_global, float** send_row_buffer, float** receive_row_buffer, float** send_section_buffer,
+    float** receive_section_buffer, t_speed** cells_global);
 
 /* Sum all the densities in the grid.
 ** The total should remain constant from one timestep to the next. */
@@ -152,18 +152,18 @@ int main(int argc, char* argv[]) {
     float* receive_row_buffer = NULL;
     float* send_section_buffer = NULL;
     float* receive_section_buffer = NULL;
-    t_speed* cells_complete = NULL;
+    t_speed* cells_global = NULL;
     int* obstacles = NULL; /* grid indicating which cells are blocked */
     int* obstacles_output = NULL;
     float* av_vels = NULL; /* a record of the av. velocity computed for each timestep */
-    float* av_vels_buffer = NULL;
+    float* av_vels_global = NULL;
     struct timeval timstr; /* structure to hold elapsed time */
     double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
     MPI_Status status;
     int tag = 0;
     int provided;
 
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
     MPI_Comm_size(MPI_COMM_WORLD, &(params.size));
     MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
 
@@ -181,8 +181,8 @@ int main(int argc, char* argv[]) {
     tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
     init_tic=tot_tic;
 
-    initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &obstacles_output, &av_vels, &av_vels_buffer,
-        &send_row_buffer, &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_complete);
+    initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &obstacles_output, &av_vels, &av_vels_global,
+        &send_row_buffer, &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_global);
 
     /* Init time stops here, compute time starts*/
     gettimeofday(&timstr, NULL);
@@ -209,7 +209,7 @@ int main(int argc, char* argv[]) {
     col_tic=comp_toc;
 
     // Collate data from ranks here
-    collate(&params, cells, cells_complete, send_section_buffer, receive_section_buffer, av_vels, av_vels_buffer, tag, &status);
+    collate(&params, cells, cells_global, send_section_buffer, receive_section_buffer, av_vels, av_vels_global, tag, &status);
 
     /* Total/collate time stops here.*/
     gettimeofday(&timstr, NULL);
@@ -219,15 +219,15 @@ int main(int argc, char* argv[]) {
     /* write final values and free memory */
     if (params.rank == MASTER) {
         printf("==done==\n");
-        printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells_complete, obstacles_output));
+        printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells_global, obstacles_output));
         printf("Elapsed Init time:\t\t\t%.6lf (s)\n", init_toc - init_tic);
         printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_toc - comp_tic);
         printf("Elapsed Collate time:\t\t\t%.6lf (s)\n", col_toc    - col_tic);
         printf("Elapsed Total time:\t\t\t%.6lf (s)\n", tot_toc    - tot_tic);
-        write_values(params, cells_complete, obstacles_output, av_vels);
+        write_values(params, cells_global, obstacles_output, av_vels_global);
     }
-    finalise(&params, &cells, &cells_new, &obstacles, &obstacles_output, &av_vels, &av_vels_buffer, &send_row_buffer, 
-        &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_complete);
+    finalise(&params, &cells, &cells_new, &obstacles, &obstacles_output, &av_vels, &av_vels_global, &send_row_buffer, 
+        &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_global);
     MPI_Finalize();
 
     return EXIT_SUCCESS;
@@ -341,79 +341,71 @@ float timestep(const t_param params, const t_speed* cells, t_speed* cells_new, c
 
 void halo_exchange(const t_param* params, t_speed* cells, float* send_row_buffer, float* receive_row_buffer, const int tag, MPI_Status* status) {
     // Send down receive up
-    for (int ii = 0; ii < params->nx; ii++) {
-        send_row_buffer[ii * 9] = cells->speeds_0[ii + params->nx];
-        send_row_buffer[ii * 9 + 1] = cells->speeds_1[ii + params->nx];
-        send_row_buffer[ii * 9 + 2] = cells->speeds_2[ii + params->nx];
-        send_row_buffer[ii * 9 + 3] = cells->speeds_3[ii + params->nx];
-        send_row_buffer[ii * 9 + 4] = cells->speeds_4[ii + params->nx];
-        send_row_buffer[ii * 9 + 5] = cells->speeds_5[ii + params->nx];
-        send_row_buffer[ii * 9 + 6] = cells->speeds_6[ii + params->nx];
-        send_row_buffer[ii * 9 + 7] = cells->speeds_7[ii + params->nx];
-        send_row_buffer[ii * 9 + 8] = cells->speeds_8[ii + params->nx];
-    }
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii] = cells->speeds_0[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx] = cells->speeds_1[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 2] = cells->speeds_2[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 3] = cells->speeds_3[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 4] = cells->speeds_4[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 5] = cells->speeds_5[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 6] = cells->speeds_6[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 7] = cells->speeds_7[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 8] = cells->speeds_8[ii + params->nx];
 
     MPI_Sendrecv(
         send_row_buffer, params->nx * 9, MPI_FLOAT, params->rank_down, tag, 
         receive_row_buffer, params->nx * 9, MPI_FLOAT, params->rank_up, tag,
         MPI_COMM_WORLD, status);
 
-    for (int ii = 0; ii < params->nx; ii++) {
-        cells->speeds_0[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9];
-        cells->speeds_1[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 1];
-        cells->speeds_2[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 2];
-        cells->speeds_3[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 3];
-        cells->speeds_4[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 4];
-        cells->speeds_5[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 5];
-        cells->speeds_6[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 6];
-        cells->speeds_7[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 7];
-        cells->speeds_8[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii * 9 + 8];
-    }
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_0[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_1[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_2[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 2];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_3[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 3];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_4[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 4];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_5[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 5];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_6[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 6];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_7[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 7];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_8[ii + params->nx * (params->num_rows + 1)] = receive_row_buffer[ii + params->nx * 8];
 
     // Send up receive down
-    for (int ii = 0; ii < params->nx; ii++) {
-        send_row_buffer[ii * 9] = cells->speeds_0[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 1] = cells->speeds_1[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 2] = cells->speeds_2[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 3] = cells->speeds_3[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 4] = cells->speeds_4[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 5] = cells->speeds_5[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 6] = cells->speeds_6[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 7] = cells->speeds_7[ii + params->nx * params->num_rows];
-        send_row_buffer[ii * 9 + 8] = cells->speeds_8[ii + params->nx * params->num_rows];
-    }
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii] = cells->speeds_0[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx] = cells->speeds_1[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 2] = cells->speeds_2[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 3] = cells->speeds_3[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 4] = cells->speeds_4[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 5] = cells->speeds_5[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 6] = cells->speeds_6[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 7] = cells->speeds_7[ii + params->nx * params->num_rows];
+    for (int ii = 0; ii < params->nx; ii++) send_row_buffer[ii + params->nx * 8] = cells->speeds_8[ii + params->nx * params->num_rows];
 
     MPI_Sendrecv(
         send_row_buffer, params->nx * 9, MPI_FLOAT, params->rank_up, tag, 
         receive_row_buffer, params->nx * 9, MPI_FLOAT, params->rank_down, tag,
         MPI_COMM_WORLD, status);
 
-    for (int ii = 0; ii < params->nx; ii++) {
-        cells->speeds_0[ii] = receive_row_buffer[ii * 9];
-        cells->speeds_1[ii] = receive_row_buffer[ii * 9 + 1];
-        cells->speeds_2[ii] = receive_row_buffer[ii * 9 + 2];
-        cells->speeds_3[ii] = receive_row_buffer[ii * 9 + 3];
-        cells->speeds_4[ii] = receive_row_buffer[ii * 9 + 4];
-        cells->speeds_5[ii] = receive_row_buffer[ii * 9 + 5];
-        cells->speeds_6[ii] = receive_row_buffer[ii * 9 + 6];
-        cells->speeds_7[ii] = receive_row_buffer[ii * 9 + 7];
-        cells->speeds_8[ii] = receive_row_buffer[ii * 9 + 8];
-    }
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_0[ii] = receive_row_buffer[ii];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_1[ii] = receive_row_buffer[ii + params->nx];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_2[ii] = receive_row_buffer[ii + params->nx * 2];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_3[ii] = receive_row_buffer[ii + params->nx * 3];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_4[ii] = receive_row_buffer[ii + params->nx * 4];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_5[ii] = receive_row_buffer[ii + params->nx * 5];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_6[ii] = receive_row_buffer[ii + params->nx * 6];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_7[ii] = receive_row_buffer[ii + params->nx * 7];
+    for (int ii = 0; ii < params->nx; ii++) cells->speeds_8[ii] = receive_row_buffer[ii + params->nx * 8];
 }
 
-void collate(const t_param* params, t_speed* cells, t_speed* cells_complete, float* send_section_buffer, float* receive_section_buffer, float* av_vels, float* av_vels_buffer, const int tag, MPI_Status* status) {
+void collate(const t_param* params, t_speed* cells, t_speed* cells_global, float* send_section_buffer, float* receive_section_buffer, float* av_vels, float* av_vels_global, const int tag, MPI_Status* status) {
     if (params->rank == MASTER) {
         for (int jj = 0; jj < params->num_rows; jj++) {
             for (int ii = 0; ii < params->nx; ii++) {
-                cells_complete->speeds_0[ii + jj * params->nx] = cells->speeds_0[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_1[ii + jj * params->nx] = cells->speeds_1[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_2[ii + jj * params->nx] = cells->speeds_2[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_3[ii + jj * params->nx] = cells->speeds_3[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_4[ii + jj * params->nx] = cells->speeds_4[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_5[ii + jj * params->nx] = cells->speeds_5[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_6[ii + jj * params->nx] = cells->speeds_6[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_7[ii + jj * params->nx] = cells->speeds_7[ii + (jj + 1) * params->nx];
-                cells_complete->speeds_8[ii + jj * params->nx] = cells->speeds_8[ii + (jj + 1) * params->nx];
+                cells_global->speeds_0[ii + jj * params->nx] = cells->speeds_0[ii + (jj + 1) * params->nx];
+                cells_global->speeds_1[ii + jj * params->nx] = cells->speeds_1[ii + (jj + 1) * params->nx];
+                cells_global->speeds_2[ii + jj * params->nx] = cells->speeds_2[ii + (jj + 1) * params->nx];
+                cells_global->speeds_3[ii + jj * params->nx] = cells->speeds_3[ii + (jj + 1) * params->nx];
+                cells_global->speeds_4[ii + jj * params->nx] = cells->speeds_4[ii + (jj + 1) * params->nx];
+                cells_global->speeds_5[ii + jj * params->nx] = cells->speeds_5[ii + (jj + 1) * params->nx];
+                cells_global->speeds_6[ii + jj * params->nx] = cells->speeds_6[ii + (jj + 1) * params->nx];
+                cells_global->speeds_7[ii + jj * params->nx] = cells->speeds_7[ii + (jj + 1) * params->nx];
+                cells_global->speeds_8[ii + jj * params->nx] = cells->speeds_8[ii + (jj + 1) * params->nx];
             }
         }
         for (int rr = 1; rr < params->size; rr++) {
@@ -421,15 +413,15 @@ void collate(const t_param* params, t_speed* cells, t_speed* cells_complete, flo
 
             for (int jj = 0; jj < params->num_rows_per_rank[rr]; jj++) {
                 for (int ii = 0; ii < params->nx; ii++) {
-                    cells_complete->speeds_0[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + jj * (params->nx * 9)];
-                    cells_complete->speeds_1[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 1 + jj * (params->nx * 9)];
-                    cells_complete->speeds_2[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 2 + jj * (params->nx * 9)];
-                    cells_complete->speeds_3[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 3 + jj * (params->nx * 9)];
-                    cells_complete->speeds_4[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 4 + jj * (params->nx * 9)];
-                    cells_complete->speeds_5[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 5 + jj * (params->nx * 9)];
-                    cells_complete->speeds_6[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 6 + jj * (params->nx * 9)];
-                    cells_complete->speeds_7[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 7 + jj * (params->nx * 9)];
-                    cells_complete->speeds_8[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 8 + jj * (params->nx * 9)];
+                    cells_global->speeds_0[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + jj * (params->nx * 9)];
+                    cells_global->speeds_1[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 1 + jj * (params->nx * 9)];
+                    cells_global->speeds_2[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 2 + jj * (params->nx * 9)];
+                    cells_global->speeds_3[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 3 + jj * (params->nx * 9)];
+                    cells_global->speeds_4[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 4 + jj * (params->nx * 9)];
+                    cells_global->speeds_5[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 5 + jj * (params->nx * 9)];
+                    cells_global->speeds_6[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 6 + jj * (params->nx * 9)];
+                    cells_global->speeds_7[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 7 + jj * (params->nx * 9)];
+                    cells_global->speeds_8[ii + (jj + params->index_start_per_rank[rr]) * params->nx] = receive_section_buffer[ii * 9 + 8 + jj * (params->nx * 9)];
                 }
             }
         }
@@ -451,20 +443,8 @@ void collate(const t_param* params, t_speed* cells, t_speed* cells_complete, flo
         MPI_Send(send_section_buffer, params->nx * params->num_rows * 9, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
     }
 
-    if (params->rank == MASTER) {
-        for (int rr = 1; rr < params->size; rr++) {
-            MPI_Recv(av_vels_buffer, params->maxIters, MPI_FLOAT, rr, tag, MPI_COMM_WORLD, status);
-            for (int tt = 0; tt < params->maxIters; tt++) {
-                av_vels[tt] += av_vels_buffer[tt];
-            }
-        }
-        for (int tt = 0; tt < params->maxIters; tt++) {
-            av_vels[tt] *= params->num_non_obstacles_r;
-        }
-    }
-    else {
-        MPI_Send(av_vels, params->maxIters, MPI_FLOAT, MASTER, tag, MPI_COMM_WORLD);
-    }
+    MPI_Reduce(av_vels, av_vels_global, params->maxIters, MPI_FLOAT, MPI_SUM, MASTER, MPI_COMM_WORLD);
+    if (params->rank == MASTER) for (int tt = 0; tt < params->maxIters; tt++) av_vels_global[tt] *= params->num_non_obstacles_r;
 }
 
 float av_velocity(const t_param params, t_speed* cells, int* obstacles) {
@@ -524,8 +504,8 @@ void allocate_rows(t_param* params) {
 }
 
 int initialise(const char* paramfile, const char* obstaclefile, t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr, 
-    int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_buffer, float** send_row_buffer, 
-    float** receive_row_buffer, float** send_section_buffer, float** receive_section_buffer, t_speed** cells_complete) {
+    int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_global, float** send_row_buffer, 
+    float** receive_row_buffer, float** send_section_buffer, float** receive_section_buffer, t_speed** cells_global) {
     char message[1024]; /* message buffer */
     FILE* fp; /* file pointer */
     int xx, yy; /* generic array indices */
@@ -585,16 +565,18 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     (*cells_new_ptr)->speeds_7 = (float*)_mm_malloc(sizeof(float) * ((params->num_rows + 2) * params->nx), 64);
     (*cells_new_ptr)->speeds_8 = (float*)_mm_malloc(sizeof(float) * ((params->num_rows + 2) * params->nx), 64);
 
-    *cells_complete = (t_speed*)_mm_malloc(sizeof(float*) * NSPEEDS, 64);
-    (*cells_complete)->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
-    (*cells_complete)->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+    if (params->rank == MASTER) {
+        *cells_global = (t_speed*)_mm_malloc(sizeof(float*) * NSPEEDS, 64);
+        (*cells_global)->speeds_0 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_1 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_2 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_3 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_4 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_5 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_6 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_7 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+        (*cells_global)->speeds_8 = (float*)_mm_malloc(sizeof(float) * (params->ny * params->nx), 64);
+    }
 
     *obstacles_ptr = _mm_malloc(sizeof(int) * ((params->num_rows + 2) * params->nx), 64);
     *obstacles_output = _mm_malloc(sizeof(int) * (params->ny * params->nx), 64);
@@ -663,7 +645,7 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
     fclose(fp);
 
     *av_vels_ptr = (float*)malloc(sizeof(float) * params->maxIters);
-    *av_vels_buffer = (float*)malloc(sizeof(float) * params->maxIters);
+    if (params->rank == MASTER) *av_vels_global = (float*)malloc(sizeof(float) * params->maxIters);
     *send_row_buffer = malloc(sizeof(float) * params->nx * 9);
     *receive_row_buffer = malloc(sizeof(float) * params->nx * 9);
     *send_section_buffer = malloc(sizeof(float) * params->nx * params->num_rows * 9);
@@ -673,15 +655,15 @@ int initialise(const char* paramfile, const char* obstaclefile, t_param* params,
 }
 
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** cells_new_ptr,
-    int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_buffer, float** send_row_buffer, float** receive_row_buffer,
-    float** send_section_buffer, float** receive_section_buffer, t_speed** cells_complete) {
+    int** obstacles_ptr, int ** obstacles_output, float** av_vels_ptr, float** av_vels_global, float** send_row_buffer, float** receive_row_buffer,
+    float** send_section_buffer, float** receive_section_buffer, t_speed** cells_global) {
     _mm_free(*cells_ptr); *cells_ptr = NULL;
     _mm_free(*cells_new_ptr); *cells_new_ptr = NULL;
-    _mm_free(*cells_complete); *cells_complete = NULL;
+    if (params->rank == MASTER) _mm_free(*cells_global); *cells_global = NULL;
     _mm_free(*obstacles_ptr); *obstacles_ptr = NULL;
     _mm_free(*obstacles_output); *obstacles_output = NULL;
     free(*av_vels_ptr); *av_vels_ptr = NULL;
-    free(*av_vels_buffer); *av_vels_buffer = NULL;
+    if (params->rank == MASTER) free(*av_vels_global); *av_vels_global = NULL;
     free(*send_row_buffer); *send_row_buffer = NULL;
     free(*receive_row_buffer); *receive_row_buffer = NULL;
     free(*send_section_buffer); *send_section_buffer = NULL;

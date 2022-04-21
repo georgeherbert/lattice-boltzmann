@@ -78,7 +78,7 @@ The same process was then repeated for the top-most row, which was sent to the s
 
 \subsection{Collating}
 
-I created a \texttt{collate} procedure to be executed once all iterations of the \texttt{timestep} procedure have been completed.
+I created a \texttt{collate} procedure to be executed once all iterations of the \texttt{timestep} procedure were complete.
 The procedure had two purposes.
 The first purpose was to transfer the the final state of the cells allocated to each process to the master process (i.e. rank zero).
 The second purpose was to transfer the partial average velocity values to the master process, and use these values to calculate the correct average velocity at each timestep.
@@ -87,14 +87,19 @@ I used the \texttt{MPI\_Send} procedure to send the final state of the cells all
 The master process received these values by executing the \texttt{MPI\_Recv} procedure once for each process.
 
 I also used the \texttt{MPI\_Send} procedure to send the partial average velocity values held by each process to the master process.
-The master process received these arrays of values one by one from each process using the \texttt{MPI\_Recv} procedure, and summed them into a global average velocities array.
+The master process received these arrays of values consecutively from each process using the \texttt{MPI\_Recv} procedure, and summed them into a global average velocities array.
 Once the arrays had been summed, the \texttt{colate} procedure multiplied each element by \texttt{params.num\_non\_obstacles\_r} in the master process to calculate the correct average velocity at each timestep.
 
 \subsection{Results}
 
+Table \ref{tab:mpi} displays the results of my MPI implementation.
+Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes; which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+My MPI implementation provided a substantial speedup over both my prior implementation (before enforcing SIMD vectorization), as well as my OpenMP implementation.
+The speedup is primarily achieved by utilising additional cores to execute sections of the \texttt{timestep} procedure in parallel.
+
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the 52 process MPI implementation and speedup over both the prior and 28 thread OpenMP implementation}\label{tab:mpi}
+  \caption{Execution times with the 112 process MPI implementation and speedup over both the prior and 28 thread OpenMP implementation}\label{tab:mpi}
   \begin{tabular}[t]{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
@@ -110,42 +115,25 @@ Once the arrays had been summed, the \texttt{colate} procedure multiplied each e
   \end{center}
 \end{table}
 
-Each time was an average of five runs on a BlueCrystal Phase 4 (BC4) compute node---a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-
 \section{Optimisations}
 
 \subsection{Vectorization}
 
 I hypothesised that SIMD vectorization of the inner loop would drastically improve the performance of my MPI implementation, as it did with my serial optimised implementation previously.
 Therefore, I made the same changes as I did with my serial optimised implementation, including converting the cells' data from an array of structures (AoS) to a structure of arrays (SoA) format.
-However, the SoA format meant that the \texttt{halo\_exchange} procedure had to be altered since the \texttt{MPI\_Sendrecv} procedure required the address of a single buffer as input.
+Implementing the SoA format meant that the \texttt{halo\_exchange} procedure had to be altered since the \texttt{MPI\_Sendrecv} procedure required the address of a single buffer as input.
 
-I experimented with two separate approaches to send a row in the \texttt{halo\_exchange} procedure.
-The first approach involved nine separate calls to the \texttt{MPI\_Sendrecv procedure}, one for each of the nine arrays in the SoA.
-The second approach involved copying the cells' values in each of the nine arrays into a large buffer, followed by a single call to the \texttt{MPI\_Sendrecv} procedure.
+I could have implemented nine separate \texttt{MPI\_Sendrecv} procedures---one for each speed.
+However, I instead decided to copy each of the nine speeds into a single array, followed by a single call to the \texttt{MPI\_Sendrecv}.
+I selected this route, since each call to the \texttt{MPI\_Sendrecv} procedure has an associated overhead.
+However, this is why I did not enforce SIMD vectorization in my prior implementation, since I could not be certain the performance benefit gained would outwigh the drawback to performance that arises from copying the nine speeds into a single array.
 
-Table \ref{tab:vectorization_1} and Table \ref{tab:vectorization_2} display the results for the first and second approach, respectively.
-The second approach was significantly faster, since the overhead introduced by nine separate calls to the \texttt{MPI\_Sendrecv} procedure was larger than the overhead introduced by copying the values within the nine arrays into a single buffer.
-
-\begin{table}[htbp]
-  \begin{center}
-  \caption{Execution times with the first vectorization approach and speedup over the prior implementation}\label{tab:vectorization_1}
-  \begin{tabular}[t]{l | l l} 
-      \hline\hline
-      Grid Size&Time (s)&Speedup\\
-      \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
+Table \ref{tab:simd} displays the execution times and speedup after enforcing SIMD vectorization.
+Enforcing SIMD vectorization provided a substantial speedup.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the second vectorization approach and speedup over the prior implementation}\label{tab:vectorization_2}
+  \caption{Execution times after enforcing SIMD vectorization and speedup over the prior implementation}\label{tab:simd}
   \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\

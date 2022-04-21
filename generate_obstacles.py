@@ -9,4 +9,10 @@ def output(i):
     for j in range(i):
         f.write(f"{j} {i - 1} 1\n")
 
-output(2048)
+    ## Optional
+    for j in range(i):
+        f.write(f"{i // 4} {j} 1\n")
+    for j in range(i):
+        f.write(f"{(i // 4) * 2} {j} 1\n")
+
+output(4096)

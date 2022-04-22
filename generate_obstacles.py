@@ -1,18 +1,21 @@
-def output(i):
-    f = open(f"obstacles_{i}x{i}.dat", "w")
-    for j in range(i):
-        f.write(f"0 {j} 1\n")
-    for j in range(i):
-        f.write(f"{j} 0 1\n")
-    for j in range(i):
-        f.write(f"{i - 1} {j} 1\n")
-    for j in range(i):
-        f.write(f"{j} {i - 1} 1\n")
+WIDTH = 2048
+HEIGHT = 1024
 
-    ## Optional
-    for j in range(i):
-        f.write(f"{i // 4} {j} 1\n")
-    for j in range(i):
-        f.write(f"{(i // 4) * 2} {j} 1\n")
+f = open(f"obstacles_{WIDTH}x{HEIGHT}.dat", "w")
 
-output(4096)
+for i in range(WIDTH):
+    f.write(f"{i} 0 1\n")
+for i in range(WIDTH):
+    f.write(f"{i} {HEIGHT - 1} 1\n")
+for i in range(HEIGHT):
+    f.write(f"{WIDTH - 1} {i} 1\n")
+for i in range(HEIGHT):
+    f.write(f"0 {i} 1\n")
+
+## OPTIONAL
+for i in range(HEIGHT):
+    f.write(f"{WIDTH // 4} {i} 1\n")
+for i in range(HEIGHT):
+    f.write(f"{(WIDTH // 4) * 2} {i} 1\n")
+
+f.close()

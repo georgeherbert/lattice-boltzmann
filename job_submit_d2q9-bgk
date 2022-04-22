@@ -9,7 +9,7 @@
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
 #SBATCH --output d2q9-bgk.out
-#SBATCH --nodelist=compute106,compute107,compute108,compute110
+#SBATCH --nodelist=compute104,compute105,compute106,compute107
 #SBATCH --exclusive
 
 echo Running on host `hostname`
@@ -24,3 +24,8 @@ mpirun ./d2q9-bgk input_128x128.params obstacles_128x128.dat
 mpirun ./d2q9-bgk input_128x256.params obstacles_128x256.dat
 mpirun ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 mpirun ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+
+mpirun ./d2q9-bgk input_2048x1024.params obstacles_2048x1024.dat
+mpirun ./d2q9-bgk input_4096x1024.params obstacles_4096x1024.dat
+mpirun ./d2q9-bgk input_8192x1024.params obstacles_8192x1024.dat
+mpirun ./d2q9-bgk input_16384x1024.params obstacles_16384x1024.dat

@@ -40,10 +40,7 @@ However, since OpenMP was built for shared-memory parallelism, my implementation
 
 Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
 Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
-Therefore, I hypothessied that a parallel implementation of \texttt{d2q9-bgk.c} that ran on multiple processes across multiple nodes---with MPI being used for interprocess communication---would provide an even more substantial performance improvement.
-
-I opted to use the implementation of my program prior to enforcing single instruction, multiple data (SIMD) vectorization as a starting point.
-I was uncertain the changes I previously implemented to enforce SIMD vectorization would provide a performance benefit to my MPI implementation.
+Therefore, I hypothessied that an implementation of \texttt{d2q9-bgk.c} with distributed memory parallelism that ran on multiple processes across multiple nodes---with MPI being used for interprocess communication---would provide an even more substantial performance improvement.
 
 \subsection{Compiler}
 
@@ -94,17 +91,17 @@ Once the arrays had been summed, the \texttt{colate} procedure multiplied each e
 
 Table \ref{tab:mpi} displays the results of my MPI implementation.
 Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes; which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-My MPI implementation provided a substantial speedup over both my prior implementation (before enforcing SIMD vectorization), as well as my OpenMP implementation.
-The speedup is primarily achieved by utilising additional cores to execute sections of the \texttt{timestep} procedure in parallel.
+My MPI implementation provided a substantial speedup over both my serial optimised implementation, as well as my OpenMP implementation.
+The speedup was primarily achieved by executing sections of the \texttt{timestep} procedure in parallel, and utilising 112 times more L1 and L2 cache, and 8 times more L3 cache.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the 112 process MPI implementation and speedup over both the prior and 28 thread OpenMP implementation}\label{tab:mpi}
+  \caption{Execution times with the 112 process MPI implementation and speedup over both my serial optimised and 28 thread OpenMP implementation}\label{tab:mpi}
   \begin{tabular}[t]{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
       \cline{3-4}
-      Grid Size&Time (s)&Prior&OpenMP\\
+      Grid Size&Time (s)&Serial&OpenMP\\
       \hline
       $128 \times 128$&\texttt{}&\texttt{}&\texttt{}\\
       $128 \times 256$&\texttt{}&\texttt{}&\texttt{}\\
@@ -117,35 +114,35 @@ The speedup is primarily achieved by utilising additional cores to execute secti
 
 \section{Optimisations}
 
-\subsection{Vectorization}
+% \subsection{Vectorization}
 
-I hypothesised that SIMD vectorization of the inner loop would drastically improve the performance of my MPI implementation, as it did with my serial optimised implementation previously.
-Therefore, I made the same changes as I did with my serial optimised implementation, including converting the cells' data from an array of structures (AoS) to a structure of arrays (SoA) format.
-Implementing the SoA format meant that the \texttt{halo\_exchange} procedure had to be altered since the \texttt{MPI\_Sendrecv} procedure required the address of a single buffer as input.
+% I hypothesised that SIMD vectorization of the inner loop would drastically improve the performance of my MPI implementation, as it did with my serial optimised implementation previously.
+% Therefore, I made the same changes as I did with my serial optimised implementation, including converting the cells' data from an array of structures (AoS) to a structure of arrays (SoA) format.
+% Implementing the SoA format meant that the \texttt{halo\_exchange} procedure had to be altered since the \texttt{MPI\_Sendrecv} procedure required the address of a single buffer as input.
 
-I could have implemented nine separate \texttt{MPI\_Sendrecv} procedures---one for each speed.
-However, I instead decided to copy each of the nine speeds into a single array, followed by a single call to the \texttt{MPI\_Sendrecv}.
-I selected this route, since each call to the \texttt{MPI\_Sendrecv} procedure has an associated overhead.
-However, this is why I did not enforce SIMD vectorization in my prior implementation, since I could not be certain the performance benefit gained would outwigh the drawback to performance that arises from copying the nine speeds into a single array.
+% I could have implemented nine separate \texttt{MPI\_Sendrecv} procedures---one for each speed.
+% However, I instead decided to copy each of the nine speeds into a single array, followed by a single call to the \texttt{MPI\_Sendrecv}.
+% I selected this route, since each call to the \texttt{MPI\_Sendrecv} procedure has an associated overhead.
+% However, this is why I did not enforce SIMD vectorization in my prior implementation, since I could not be certain the performance benefit gained would outwigh the drawback to performance that arises from copying the nine speeds into a single array.
 
-Table \ref{tab:simd} displays the execution times and speedup after enforcing SIMD vectorization.
-Enforcing SIMD vectorization provided a substantial speedup.
+% Table \ref{tab:simd} displays the execution times and speedup after enforcing SIMD vectorization.
+% Enforcing SIMD vectorization provided a substantial speedup.
 
-\begin{table}[htbp]
-  \begin{center}
-  \caption{Execution times after enforcing SIMD vectorization and speedup over the prior implementation}\label{tab:simd}
-  \begin{tabular}[t]{l | l l} 
-      \hline\hline
-      Grid Size&Time (s)&Speedup\\
-      \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
+% \begin{table}[htbp]
+%   \begin{center}
+%   \caption{Execution times after enforcing SIMD vectorization and speedup over the prior implementation}\label{tab:simd}
+%   \begin{tabular}[t]{l | l l} 
+%       \hline\hline
+%       Grid Size&Time (s)&Speedup\\
+%       \hline
+%       $128 \times 128$&\texttt{}&\texttt{}\\
+%       $128 \times 256$&\texttt{}&\texttt{}\\
+%       $256 \times 256$&\texttt{}&\texttt{}\\
+%       $1024 \times 1024$&\texttt{}&\texttt{}\\
+%       \hline
+%     \end{tabular}
+%   \end{center}
+% \end{table}
 
 \subsection{Average Velocities Reduction}
 
@@ -171,76 +168,12 @@ I would expect a more significant impact on the overall exeuction time for input
   \end{center}
 \end{table}
 
-\section{Experiments}
-
-\subsection{Hybrid MPI and OpenMP}
-
-I sought to investigate whether a hybrid implementation would execute faster than my prior implementation.
-Therefore, I produced an implementation of \texttt{d2q9-bgk.c} that ran with eight processes---one per socket across four nodes---communicating via MPI, with each process branching fourteen threads at specific points in the program.
-These specific points were identical to that in my OpenMP implementation: the outer loop in the \texttt{timestep} procedure, and the initialisation loops for the \texttt{obstacles} and \texttt{cells} arrays.
-
-I tested my program with the four grids provided, as well as three additional grids that I produced.
-Table \ref{tab:hybrid} displays the results of my experiment.
-The hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
-This was because, with the smaller grids, the overhead introduced by creating and synchronising OpenMP threads each timestep outweighed the performance benefit of fewer halo exchanges.
-However, the hybrid implementation excelled with the larger grids, since the overhead introduced by OpenMP was near identical, but the time spent performing halo exchanges increased dramatically. 
-
-\begin{table}[htbp]
-  \begin{center}
-  \caption{Execution times with the hybrid implementation and speedup over the prior implementation}\label{tab:hybrid}
-  \begin{tabular}[t]{l | l l} 
-      \hline\hline
-      Grid Size&Time (s)&Speedup\\
-      \hline
-      $128 \times 128$&\texttt{ \space0.66}&\texttt{}\\
-      $128 \times 256$&\texttt{ \space0.73}&\texttt{}\\
-      $256 \times 256$&\texttt{ \space1.93}&\texttt{}\\
-      $1024 \times 1024$&\texttt{ \space3.19}&\texttt{}\\
-      \hdashline
-      $4096 \times 1024$&\texttt{ 17.18}&\texttt{1.32}\\
-      $8192 \times 2048$&\texttt{ 91.74}&\texttt{1.04}\\
-      $16384 \times 4096$&\texttt{337.16}&\texttt{1.01}\\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
-
-\subsection{OpenMP vs MPI}
-
-\begin{figure}[htpb]
-  \centering
-  \resizebox{\columnwidth}{!}{
-    \begin{tikzpicture}
-      \begin{axis}[
-        xlabel={Number of Threads},
-        ylabel={Speedup},
-        xmin = 1, xmax = 28,
-        ymin = 1,
-        % xtick={0, 5, 10, 15, 20, 25},
-        % ytick={0,20,40,60,80,100,120},
-        legend pos=north west,
-        ymajorgrids=true,
-        grid style=dashed,
-        minor xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}
-      ]
-      \addlegendentry{OpenMP}
-      \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x]coordinates{
-        (1, 1.0)
-        (2, 1.7525169788462858)
-      };
-      \addlegendentry{MPI}
-      \addplot[color = {rgb:red,255;green,127;blue,14}, mark = x]coordinates{
-      };
-      \end{axis}
-    \end{tikzpicture}
-  }
-  \caption{Speedup curves for my OpenMP and MPI implementation on the $1024\times1024$ grid}\label{fig:scaling_openmp_mpi}
-\end{figure}
+\section{Analysis}
 
 \subsection{Scaling}
 
 I ran my final MPI implementation from 1--112 processes to analyse how my program scaled.
-My program ran on as few nodes as possible, such that each process was assigned to a single core. 
+My program ran on as few nodes as possible, with each process was assigned to a single core. 
 I then calculated the subsequent processes' speedup over a single process implementation.
 Figure \ref{fig:scaling} displays the result speedup curves.
 
@@ -249,7 +182,7 @@ Figure \ref{fig:scaling} displays the result speedup curves.
   \resizebox{\columnwidth}{!}{
     \begin{tikzpicture}
       \begin{axis}[
-        xlabel={Number of Threads},
+        xlabel={Number of Processes},
         ylabel={Speedup},
         xmin = 1, xmax = 112,
         ymin = 1,
@@ -262,90 +195,90 @@ Figure \ref{fig:scaling} displays the result speedup curves.
       ]
       \addlegendentry{$128\times128$}
       \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x]coordinates{
-        (1, 1)
-        (2, 1.922808444)
-        (3, 2.708059802)
-        (4, 3.464734781)
-        (5, 4.142059923)
-        (6, 4.670675057)
-        (7, 5.211431651)
-        (8, 6.049802054)
-        (9, 6.284429188)
-        (10, 6.924075746)
-        (11, 7.410721042)
-        (12, 7.966540587)
-        (13, 8.439237681)
-        (14, 8.543576051)
-        (15, 8.554939509)
-        (16, 9.77942865)
-        (17, 10.06144707)
-        (18, 10.08154615)
-        (19, 10.82751095)
-        (20, 10.89260709)
-        (21, 10.90651815)
-        (22, 11.78077728)
-        (23, 11.8009378)
-        (24, 11.97610095)
-        (25, 12.13291302)
-        (26, 13.18270023)
-        (27, 13.18108019)
-        (28, 13.08024123)
-        (29, 10.51526129)
-        (30, 10.58383832)
-        (31, 10.35592237)
-        (32, 10.14230555)
-        (33, 10.50176722)
-        (34, 11.10254374)
-        (35, 11.20210963)
-        (36, 10.13069742)
-        (37, 11.63928136)
-        (38, 10.35221879)
-        (39, 11.72158548)
-        (40, 10.61610358)
-        (41, 11.58868031)
-        (42, 11.51831083)
-        (43, 12.72382438)
-        (44, 11.37353226)
-        (45, 12.70257103)
-        (46, 9.241521877)
-        (47, 12.79212232)
-        (48, 10.31398423)
-        (49, 12.73550096)
-        (50, 10.87232078)
-        (51, 10.44664227)
-        (52, 10.49156307)
-        (53, 12.80608538)
-        (54, 10.06783665)
-        (55, 12.72016191)
-        (56, 10.01782704)
-        (57, 9.811491369)
-        (58, 12.93781849)
-        (59, 12.29166551)
-        (60, 10.69113173)
-        (61, 12.90085142)
-        (62, 11.5576171)
-        (63, 12.12750043)
-        (64, 14.38226654)
-        (65, 13.19426521)
-        (66, 11.49843923)
-        (67, 14.22560451)
-        (68, 13.22092837)
-        (69, 13.0607442)
-        (70, 14.23689233)
-        (71, 14.0492829)
-        (72, 10.58496152)
-        (73, 12.63788173)
-        (74, 11.34458411)
-        (75, 9.048344226)
-        (76, 13.95694552)
-        (77, 14.20703059)
-        (78, 10.64631358)
-        (79, 14.15623475)
-        (80, 13.54871693)
-        (81, 10.66763395)
-        (82, 14.46324628)
-        (83, 12.80130253)
-        (84, 9.053077377)
+        (1)
+        (2, 1.923484904)
+        (3, 2.720894881)
+        (4, 3.440629879)
+        (5, 4.138267014)
+        (6, 4.663357796)
+        (7, 5.242110909)
+        (8, 5.997834661)
+        (9, 6.289791841)
+        (10, 6.946565607)
+        (11, 7.428037519)
+        (12, 7.95038628)
+        (13, 8.433876381)
+        (14, 8.529248058)
+        (15, 8.803834029)
+        (16, 9.766209845)
+        (17, 10.03121078)
+        (18, 10.06840901)
+        (19, 10.823501)
+        (20, 10.89601518)
+        (21, 10.91800443)
+        (22, 11.84262736)
+        (23, 11.8219416)
+        (24, 11.97369741)
+        (25, 12.0975617)
+        (26, 13.1584053)
+        (27, 13.31030358)
+        (28, 13.09199604)
+        (29, 10.51279543)
+        (30, 9.447423254)
+        (31, 10.42385535)
+        (32, 10.30054902)
+        (33, 10.80235067)
+        (34, 11.18228843)
+        (35, 11.28177199)
+        (36, 9.84586148)
+        (37, 11.58823901)
+        (38, 10.08001059)
+        (39, 10.99390174)
+        (40, 10.5569982)
+        (41, 11.56726497)
+        (42, 10.24545739)
+        (43, 12.72036597)
+        (44, 10.89204809)
+        (45, 12.68270324)
+        (46, 9.517212061)
+        (47, 12.70287876)
+        (48, 9.582852227)
+        (49, 12.70536401)
+        (50, 9.965823544)
+        (51, 11.25846097)
+        (52, 10.63104034)
+        (53, 12.76248403)
+        (54, 10.50652785)
+        (55, 11.90630364)
+        (56, 10.76817156)
+        (57, 9.92607211)
+        (58, 12.89249626)
+        (59, 12.51463609)
+        (60, 11.41730712)
+        (61, 11.38075986)
+        (62, 12.05183804)
+        (63, 12.33484451)
+        (64, 14.36825721)
+        (65, 12.94409609)
+        (66, 12.41719085)
+        (67, 14.19480666)
+        (68, 13.57486626)
+        (69, 12.82320169)
+        (70, 13.70570713)
+        (71, 13.56967231)
+        (72, 10.71067935)
+        (73, 12.95178741)
+        (74, 11.37959467)
+        (75, 10.82015609)
+        (76, 13.97900377)
+        (77, 13.7270023)
+        (78, 11.23829384)
+        (79, 14.05923951)
+        (80, 11.55316639)
+        (81, 11.2926889)
+        (82, 14.27943961)
+        (83, 12.66856962)
+        (84, 10.09500034)
         (85, 14.28261536)
         (86, 13.16863695)
         (87, 13.18328092)
@@ -377,90 +310,90 @@ Figure \ref{fig:scaling} displays the result speedup curves.
       };
       \addlegendentry{$128\times256$}
       \addplot[color = {rgb:red,255;green,127;blue,14}, mark = x]coordinates{
-        (1, 1)
-        (2, 2.178028484)
-        (3, 3.196785844)
-        (4, 4.164688341)
-        (5, 4.945837588)
-        (6, 5.700338725)
-        (7, 6.459853863)
-        (8, 7.140151441)
-        (9, 7.794156638)
-        (10, 8.471097779)
-        (11, 9.092806151)
-        (12, 9.888069146)
-        (13, 10.735835)
-        (14, 11.13261876)
-        (15, 11.86662053)
-        (16, 12.91084774)
-        (17, 12.48573073)
-        (18, 13.76313801)
-        (19, 14.47494367)
-        (20, 15.44523842)
-        (21, 15.53164136)
-        (22, 16.30253209)
-        (23, 16.45364559)
-        (24, 16.42900576)
-        (25, 17.50120582)
-        (26, 18.66258668)
-        (27, 18.75417886)
-        (28, 18.69728157)
-        (29, 16.85853658)
-        (30, 15.05054827)
-        (31, 15.71178903)
-        (32, 15.05411813)
-        (33, 17.95707188)
-        (34, 14.30346812)
-        (35, 18.08841621)
-        (36, 17.00472192)
-        (37, 18.082551)
-        (38, 18.00636915)
-        (39, 19.20980578)
-        (40, 14.99893186)
-        (41, 19.57893928)
-        (42, 18.8635518)
-        (43, 21.15086982)
-        (44, 17.67812067)
-        (45, 21.14896051)
-        (46, 15.31124094)
-        (47, 21.33161321)
-        (48, 19.34701468)
-        (49, 19.71519411)
-        (50, 16.59716914)
-        (51, 21.38950655)
-        (52, 18.98927472)
-        (53, 23.05531791)
-        (54, 21.0485019)
-        (55, 23.03724604)
-        (56, 20.4488261)
-        (57, 16.05517262)
-        (58, 22.94505778)
-        (59, 22.0651348)
-        (60, 21.94895521)
-        (61, 21.22015873)
-        (62, 18.0140901)
-        (63, 19.89672676)
-        (64, 25.28730621)
-        (65, 18.76325775)
-        (66, 19.81000825)
-        (67, 23.35346516)
-        (68, 24.0431408)
-        (69, 21.3132486)
-        (70, 25.28932244)
-        (71, 19.88445973)
-        (72, 21.55720614)
-        (73, 25.36621747)
-        (74, 25.20085085)
-        (75, 24.18224162)
-        (76, 25.44783013)
-        (77, 21.97415246)
-        (78, 14.86229867)
-        (79, 25.20823359)
-        (80, 25.44376703)
-        (81, 19.99333188)
-        (82, 25.29467674)
-        (83, 24.24834032)
-        (84, 25.16986964)
+        (1)
+        (2, 2.205625975)
+        (3, 3.227329026)
+        (4, 4.206536128)
+        (5, 4.957628857)
+        (6, 5.720325252)
+        (7, 6.5186293)
+        (8, 7.204187632)
+        (9, 7.83187371)
+        (10, 8.519480837)
+        (11, 9.141792188)
+        (12, 9.946144856)
+        (13, 10.78303952)
+        (14, 11.17654785)
+        (15, 11.96372797)
+        (16, 12.86100085)
+        (17, 12.77900855)
+        (18, 13.84474552)
+        (19, 14.54722804)
+        (20, 15.51467595)
+        (21, 15.61471426)
+        (22, 16.41110324)
+        (23, 16.55474236)
+        (24, 16.88471919)
+        (25, 17.63506903)
+        (26, 18.81278116)
+        (27, 18.85990554)
+        (28, 18.79353144)
+        (29, 16.99774639)
+        (30, 15.79817866)
+        (31, 16.19702524)
+        (32, 16.15965593)
+        (33, 17.29162535)
+        (34, 15.70016114)
+        (35, 18.24326824)
+        (36, 17.59400273)
+        (37, 16.60271485)
+        (38, 17.62056876)
+        (39, 18.54799616)
+        (40, 15.55440163)
+        (41, 19.67959722)
+        (42, 19.1560423)
+        (43, 21.35522276)
+        (44, 17.03686616)
+        (45, 20.92098931)
+        (46, 16.81730667)
+        (47, 21.42591543)
+        (48, 19.41596955)
+        (49, 20.40834137)
+        (50, 17.25017866)
+        (51, 21.42281112)
+        (52, 19.78933109)
+        (53, 23.07737542)
+        (54, 18.918754)
+        (55, 23.01384332)
+        (56, 21.37017128)
+        (57, 16.14969542)
+        (58, 20.0009934)
+        (59, 22.46020712)
+        (60, 22.42917414)
+        (61, 22.12510191)
+        (62, 19.87277518)
+        (63, 21.15162638)
+        (64, 25.37114287)
+        (65, 21.04839449)
+        (66, 18.95802252)
+        (67, 22.70932312)
+        (68, 22.97178595)
+        (69, 19.42403684)
+        (70, 25.20246959)
+        (71, 21.87162616)
+        (72, 22.10931871)
+        (73, 25.48457214)
+        (74, 25.40576875)
+        (75, 21.86621052)
+        (76, 25.42855553)
+        (77, 21.08392509)
+        (78, 15.6640675)
+        (79, 25.37761189)
+        (80, 22.68812171)
+        (81, 19.62011193)
+        (82, 25.34038719)
+        (83, 24.32976857)
+        (84, 22.38365252)
         (85, 25.49728852)
         (86, 27.67149109)
         (87, 26.16157312)
@@ -492,90 +425,90 @@ Figure \ref{fig:scaling} displays the result speedup curves.
       };
       \addlegendentry{$256\times256$}
       \addplot[color = {rgb:red,44;green,160;blue,44}, mark = x]coordinates{
-        (1, 1)
-        (2, 1.945127526)
-        (3, 3.139079154)
-        (4, 3.985983393)
-        (5, 4.822401812)
-        (6, 5.511872495)
-        (7, 6.390039578)
-        (8, 6.941399045)
-        (9, 7.648248545)
-        (10, 8.284034398)
-        (11, 8.795940812)
-        (12, 9.562259477)
-        (13, 10.03169515)
-        (14, 10.26531205)
-        (15, 11.33136788)
-        (16, 12.22284819)
-        (17, 12.45403162)
-        (18, 13.18239624)
-        (19, 13.27572904)
-        (20, 14.59847809)
-        (21, 14.58203062)
-        (22, 15.67842067)
-        (23, 15.87842274)
-        (24, 16.86538948)
-        (25, 16.94164148)
-        (26, 18.0560227)
-        (27, 18.35251929)
-        (28, 18.43458286)
-        (29, 17.1735845)
-        (30, 16.9412826)
-        (31, 17.4331915)
-        (32, 17.74811926)
-        (33, 18.53478139)
-        (34, 18.15746748)
-        (35, 18.40949696)
-        (36, 17.99296887)
-        (37, 20.34962281)
-        (38, 20.38547968)
-        (39, 20.00247444)
-        (40, 20.02228584)
-        (41, 19.67624818)
-        (42, 20.22456386)
-        (43, 22.35300245)
-        (44, 21.05388413)
-        (45, 22.31112584)
-        (46, 22.12390584)
-        (47, 22.20380777)
-        (48, 21.14818593)
-        (49, 22.33288526)
-        (50, 20.74693244)
-        (51, 21.03502307)
-        (52, 24.05305719)
-        (53, 24.62561574)
-        (54, 23.04482076)
-        (55, 24.61593971)
-        (56, 23.37306301)
-        (57, 21.60198898)
-        (58, 24.49883477)
-        (59, 24.76817412)
-        (60, 23.84267306)
-        (61, 24.8774351)
-        (62, 24.73459932)
-        (63, 24.53765456)
-        (64, 27.16163665)
-        (65, 27.56365991)
-        (66, 27.22912305)
-        (67, 27.7917721)
-        (68, 26.5092514)
-        (69, 27.63510531)
-        (70, 26.04517546)
-        (71, 26.13540846)
-        (72, 26.35943238)
-        (73, 27.42046887)
-        (74, 27.83873537)
-        (75, 25.5020431)
-        (76, 27.69210384)
-        (77, 24.25847606)
-        (78, 26.27019884)
-        (79, 27.64934867)
-        (80, 27.42871582)
-        (81, 24.91520647)
-        (82, 27.8711369)
-        (83, 27.86195891)
-        (84, 25.26948178)
+        (1)
+        (2, 1.925127415)
+        (3, 3.140333019)
+        (4, 4.034925801)
+        (5, 4.78762859)
+        (6, 5.548938663)
+        (7, 6.404618662)
+        (8, 6.968739974)
+        (9, 7.663080488)
+        (10, 8.312526115)
+        (11, 8.852461517)
+        (12, 9.605431059)
+        (13, 10.06145238)
+        (14, 10.29374937)
+        (15, 11.37306684)
+        (16, 12.28185633)
+        (17, 12.50338781)
+        (18, 13.18889042)
+        (19, 13.31294585)
+        (20, 14.70777733)
+        (21, 14.55264271)
+        (22, 15.75611214)
+        (23, 15.92868238)
+        (24, 16.95789156)
+        (25, 17.02232096)
+        (26, 18.1996368)
+        (27, 18.42801124)
+        (28, 18.46672465)
+        (29, 17.29202644)
+        (30, 16.3773773)
+        (31, 17.47308485)
+        (32, 17.62638401)
+        (33, 18.65075869)
+        (34, 18.39755995)
+        (35, 18.60686115)
+        (36, 18.19979983)
+        (37, 20.47095888)
+        (38, 19.78039772)
+        (39, 19.87870191)
+        (40, 19.57366035)
+        (41, 20.0423534)
+        (42, 20.04684952)
+        (43, 22.41860194)
+        (44, 21.51447621)
+        (45, 22.29960449)
+        (46, 21.51985585)
+        (47, 22.32706386)
+        (48, 21.42352302)
+        (49, 22.23288533)
+        (50, 20.21625868)
+        (51, 21.66294914)
+        (52, 23.84329098)
+        (53, 24.58609618)
+        (54, 23.59494944)
+        (55, 24.47228876)
+        (56, 22.8398099)
+        (57, 22.7149941)
+        (58, 24.69497187)
+        (59, 24.92866935)
+        (60, 23.2764513)
+        (61, 25.00215927)
+        (62, 24.92609823)
+        (63, 24.28449993)
+        (64, 27.31102246)
+        (65, 27.61766033)
+        (66, 26.16929081)
+        (67, 27.76095551)
+        (68, 26.85523603)
+        (69, 27.40893503)
+        (70, 26.66846158)
+        (71, 26.67769083)
+        (72, 25.19788674)
+        (73, 27.57875103)
+        (74, 27.87808785)
+        (75, 25.09623612)
+        (76, 27.80856085)
+        (77, 25.41232735)
+        (78, 25.61260696)
+        (79, 27.60106957)
+        (80, 27.50554548)
+        (81, 25.9284344)
+        (82, 27.30692535)
+        (83, 27.73519686)
+        (84, 25.88250583)
         (85, 27.85795858)
         (86, 30.78228538)
         (87, 30.86531039)
@@ -607,90 +540,90 @@ Figure \ref{fig:scaling} displays the result speedup curves.
       };
       \addlegendentry{$1024\times1024$}
       \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x]coordinates{
-        (1, 1)
-        (2, 2.183346182)
-        (3, 2.84296167)
-        (4, 4.015639583)
-        (5, 4.431608929)
-        (6, 5.273048985)
-        (7, 6.166801173)
-        (8, 6.999372908)
-        (9, 7.703520359)
-        (10, 7.337916865)
-        (11, 8.163524538)
-        (12, 9.161177786)
-        (13, 10.66639541)
-        (14, 11.81972027)
-        (15, 11.6473548)
-        (16, 13.38231529)
-        (17, 12.80253891)
-        (18, 14.37527875)
-        (19, 14.15641925)
-        (20, 15.32393877)
-        (21, 14.75532875)
-        (22, 15.92105208)
-        (23, 14.82346611)
-        (24, 16.3980624)
-        (25, 15.33596165)
-        (26, 16.70138412)
-        (27, 15.36831973)
-        (28, 16.53543585)
-        (29, 24.81193061)
-        (30, 25.34543663)
-        (31, 26.35953332)
-        (32, 26.84491675)
-        (33, 27.44101463)
-        (34, 29.12136554)
-        (35, 30.23160433)
-        (36, 36.06444608)
-        (37, 38.21006127)
-        (38, 40.15678012)
-        (39, 39.27706219)
-        (40, 40.71757248)
-        (41, 43.83255421)
-        (42, 43.81462708)
-        (43, 45.02816718)
-        (44, 45.4528944)
-        (45, 45.5342091)
-        (46, 44.12775544)
-        (47, 45.70433758)
-        (48, 45.16468146)
-        (49, 50.039844)
-        (50, 49.07842726)
-        (51, 49.60778642)
-        (52, 50.19510353)
-        (53, 52.37488435)
-        (54, 51.88908592)
-        (55, 54.14957816)
-        (56, 53.99356924)
-        (57, 53.99389435)
-        (58, 56.26674119)
-        (59, 56.83444992)
-        (60, 54.74579413)
-        (61, 59.68119116)
-        (62, 58.2549271)
-        (63, 57.87581148)
-        (64, 61.32862571)
-        (65, 61.42676501)
-        (66, 62.56983789)
-        (67, 63.09551008)
-        (68, 59.91027667)
-        (69, 62.11107804)
-        (70, 63.83170563)
-        (71, 61.72796092)
-        (72, 62.42255719)
-        (73, 62.41608716)
-        (74, 62.85008559)
-        (75, 63.86275977)
-        (76, 61.64633619)
-        (77, 61.86763431)
-        (78, 63.300419)
-        (79, 70.61216299)
-        (80, 71.30490621)
-        (81, 69.17115969)
-        (82, 71.73626531)
-        (83, 73.22761354)
-        (84, 67.19986543)
+        (1)
+        (2, 2.173711193)
+        (3, 2.836895868)
+        (4, 4.036873172)
+        (5, 4.389001279)
+        (6, 5.250171877)
+        (7, 6.206328606)
+        (8, 6.884988543)
+        (9, 7.699455735)
+        (10, 7.326102008)
+        (11, 8.167957305)
+        (12, 9.202796572)
+        (13, 10.64605845)
+        (14, 11.79316736)
+        (15, 11.54612272)
+        (16, 13.36192713)
+        (17, 12.76637316)
+        (18, 14.4268392)
+        (19, 14.09500759)
+        (20, 15.37438851)
+        (21, 14.63591628)
+        (22, 15.99456741)
+        (23, 14.83351358)
+        (24, 16.4555638)
+        (25, 15.07849263)
+        (26, 16.68441375)
+        (27, 15.42876319)
+        (28, 16.17670295)
+        (29, 24.68537945)
+        (30, 25.46714682)
+        (31, 26.39691444)
+        (32, 26.8356459)
+        (33, 27.49939443)
+        (34, 28.87062298)
+        (35, 30.18922927)
+        (36, 36.93424484)
+        (37, 37.6672039)
+        (38, 40.34303667)
+        (39, 39.8556408)
+        (40, 40.41454983)
+        (41, 43.87475629)
+        (42, 43.1394357)
+        (43, 44.8060583)
+        (44, 45.47120956)
+        (45, 45.5843428)
+        (46, 43.9177163)
+        (47, 45.85590864)
+        (48, 44.81901113)
+        (49, 50.05752876)
+        (50, 49.50540648)
+        (51, 49.54762095)
+        (52, 49.96750344)
+        (53, 50.58992914)
+        (54, 52.44384123)
+        (55, 53.4581716)
+        (56, 52.14910419)
+        (57, 55.02558376)
+        (58, 56.41919087)
+        (59, 56.94366787)
+        (60, 55.43683673)
+        (61, 59.66312456)
+        (62, 58.74375724)
+        (63, 58.16551375)
+        (64, 61.3999277)
+        (65, 61.85867302)
+        (66, 62.34991401)
+        (67, 63.19022701)
+        (68, 61.10059992)
+        (69, 62.28022212)
+        (70, 62.6293099)
+        (71, 61.73663883)
+        (72, 60.82668503)
+        (73, 62.5723675)
+        (74, 63.56593066)
+        (75, 64.00574238)
+        (76, 62.73501572)
+        (77, 63.27787491)
+        (78, 63.1338179)
+        (79, 70.12503895)
+        (80, 71.49919016)
+        (81, 68.86425241)
+        (82, 71.60464349)
+        (83, 72.09983165)
+        (84, 66.33512191)
         (85, 73.53397362)
         (86, 76.75693789)
         (87, 75.24787807)
@@ -726,17 +659,207 @@ Figure \ref{fig:scaling} displays the result speedup curves.
   \caption{Speedup curves for my MPI implementation}\label{fig:scaling}
 \end{figure}
 
-In general, my implementation initially scaled well for the smallest three grid sizes, but the speedup acquired from each subsequent process declined (i.e. a sublinear plateau), which occurred due to several reasons.
-Perfect linear scaling was theoretically impossible because the program contained serial sections.
+My implementation initially scaled well for the smallest three grid sizes, but the speedup acquired from each subsequent process declined (i.e. a sublinear plateau), which occurred due to several reasons.
+Firstly, perfect linear scaling was theoretically impossible because the program contained serial sections.
 
-A different pattern emerged in the largest grid size.
+My implementation followed a similar pattern for the $1024 \times 1024$ grid, however there was a clear increase in speedup after approximately 30 processes.
+The superlinear speedup at this point was caused by the largest problem size being split sufficiently small to fit into the L3 cache.
 
-Notably, the amount of speedup provided by each next core was approximately inversely proportional to the test case size.
-In other words, larger grid sizes benefitted more from a multiprocess implementation than smaller grid sizes.
-Firstly, this was because the larger grids benefitted more from being split sufficiently small to fit into the faster cache levels.
-Secondly, the larger grid sizes were more evenly divided by the number of processes.
+\subsection{Comparison to Serial}
 
-\section{Comparison to Serial}
+\section{Hybrid MPI and OpenMP}
+
+I sought to investigate whether a hybrid implementation would execute faster than my prior implementation.
+
+\subsection{OpenMP vs MPI Scaling}
+
+Before producing my hybrid implementation, I compared the speedup curves of my distributed memory parallelism implementation built with MPI with my shared-memory parallelism implementation built with OpenMP.
+Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two implementations with the $128 \times 128$ and the $1024 \times 1024$ grid sizes.
+
+\begin{figure}[htpb]
+  \centering
+  \resizebox{\columnwidth}{!}{
+    \begin{tikzpicture}
+      \begin{axis}[
+        xlabel={Number of Processes/Threads},
+        ylabel={Speedup},
+        xmin = 1, xmax = 28,
+        ymin = 1,
+        % xtick={0, 5, 10, 15, 20, 25},
+        % ytick={0,20,40,60,80,100,120},
+        legend pos=north west,
+        ymajorgrids=true,
+        grid style=dashed,
+        minor xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}
+      ]
+      \addlegendentry{$128\times128$ \textsubscript{MPI}}
+      \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x]coordinates{
+        (1)
+        (2, 1.923484904)
+        (3, 2.720894881)
+        (4, 3.440629879)
+        (5, 4.138267014)
+        (6, 4.663357796)
+        (7, 5.242110909)
+        (8, 5.997834661)
+        (9, 6.289791841)
+        (10, 6.946565607)
+        (11, 7.428037519)
+        (12, 7.95038628)
+        (13, 8.433876381)
+        (14, 8.529248058)
+        (15, 8.803834029)
+        (16, 9.766209845)
+        (17, 10.03121078)
+        (18, 10.06840901)
+        (19, 10.823501)
+        (20, 10.89601518)
+        (21, 10.91800443)
+        (22, 11.84262736)
+        (23, 11.8219416)
+        (24, 11.97369741)
+        (25, 12.0975617)
+        (26, 13.1584053)
+        (27, 13.31030358)
+        (28, 13.09199604)
+      };
+      \addlegendentry{$1024\times1024$ \textsubscript{MPI}}
+      \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x]coordinates{
+        (1)
+        (2, 2.173711193)
+        (3, 2.836895868)
+        (4, 4.036873172)
+        (5, 4.389001279)
+        (6, 5.250171877)
+        (7, 6.206328606)
+        (8, 6.884988543)
+        (9, 7.699455735)
+        (10, 7.326102008)
+        (11, 8.167957305)
+        (12, 9.202796572)
+        (13, 10.64605845)
+        (14, 11.79316736)
+        (15, 11.54612272)
+        (16, 13.36192713)
+        (17, 12.76637316)
+        (18, 14.4268392)
+        (19, 14.09500759)
+        (20, 15.37438851)
+        (21, 14.63591628)
+        (22, 15.99456741)
+        (23, 14.83351358)
+        (24, 16.4555638)
+        (25, 15.07849263)
+        (26, 16.68441375)
+        (27, 15.42876319)
+        (28, 16.17670295)
+      };
+      \addlegendentry{$128\times128$ \textsubscript{OMP}}
+      \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x, dashed]coordinates{
+        (1, 1.0)
+        (2, 1.7525169788462858)
+        (3, 2.419897249840069)
+        (4, 3.0177321760395954)
+        (5, 3.4340474353625594)
+        (6, 3.8362657949346852)
+        (7, 4.241072726461517)
+        (8, 4.651864978037027)
+        (9, 4.993654422331282)
+        (10,5.2882280154084835)
+        (11,5.520195387872089)
+        (12,5.854579031493787)
+        (13,6.23457059163917)
+        (14,6.342501046595846)
+        (15,6.666023078680611)
+        (16,6.829810732132427)
+        (17,6.6526516481296065)
+        (18,6.746204776109836)
+        (19,7.213003419569139)
+        (20,7.383978810814603)
+        (21,7.383266518002555)
+        (22,7.548589923892521)
+        (23,7.770076587082373)
+        (24,7.86829502746941)
+        (25,7.69660960948019)
+        (26,8.000150678051229)
+        (27,8.274732001825265)
+        (28,8.256913368882064)
+      };
+      \addlegendentry{$1024\times1024$ \textsubscript{OMP}}
+      \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x, dashed]coordinates{
+        (1, 1)
+        (2, 2.182054561)
+        (3, 2.943754524)
+        (4, 4.131667716)
+        (5, 4.705750019)
+        (6, 5.973656817)
+        (7, 6.351981192)
+        (8, 7.573833461)
+        (9, 7.941396106)
+        (10,8.7813412)
+        (11,9.58468842)
+        (12,10.78916878)
+        (13,11.02458512)
+        (14,12.12324785)
+        (15,11.86351157)
+        (16,12.97218687)
+        (17,13.23885542)
+        (18,13.31481491)
+        (19,14.92644603)
+        (20,13.88484436)
+        (21,13.74639988)
+        (22,15.72695273)
+        (23,14.36825215)
+        (24,13.59839996)
+        (25,14.03417467)
+        (26,15.5747082)
+        (27,15.16956075)
+        (28,16.59876059)
+      };
+      \addlegendentry{MPI}
+      \addplot[color = {rgb:red,255;green,127;blue,14}, mark = x]coordinates{
+      };
+      \end{axis}
+    \end{tikzpicture}
+  }
+  \caption{Speedup curves for my OpenMP and MPI implementation}\label{fig:scaling_openmp_mpi}
+\end{figure}
+
+My MPI implementation scaled better for the smaller size, whereas my OpenMP implementation scaled slightly better for the larger size.
+This was because each implementation had a different overhead: in the OpenMP implementation, the overhead arose from the creation and synchronisation of threads each timestep; in the MPI implementation, the overhead arose from the halo exchange.
+The OpenMP overhead was largely constant, regardless of the grid size, whereas the MPI overhead was approximately proportional to the width of the grid.
+
+\subsection{Hybrid MPI and OpenMP}
+
+Using my prior implementation as a starting point, I replaced the call to the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
+
+
+I produced an implementation of \texttt{d2q9-bgk.c} that ran with eight processes---one per socket across four nodes---communicating via MPI, with each process branching fourteen threads at specific points in the program.
+These specific points were identical to that in my OpenMP implementation: the outer loop in the \texttt{timestep} procedure, and the initialisation loops for the \texttt{obstacles} and \texttt{cells} arrays.
+
+I tested my program with the four grids provided, as well as three additional grids that I produced.
+Table \ref{tab:hybrid} displays the results of my experiment.
+The hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
+
+\begin{table}[htbp]
+  \begin{center}
+  \caption{Execution times with the hybrid implementation and speedup over the prior implementation}\label{tab:hybrid}
+  \begin{tabular}[t]{l | l l} 
+      \hline\hline
+      Grid Size&Time (s)&Speedup\\
+      \hline
+      $128 \times 128$&\texttt{ \space0.66}&\texttt{}\\
+      $128 \times 256$&\texttt{ \space0.73}&\texttt{}\\
+      $256 \times 256$&\texttt{ \space1.93}&\texttt{}\\
+      $1024 \times 1024$&\texttt{ \space3.19}&\texttt{}\\
+      \hdashline
+      $4096 \times 1024$&\texttt{ 17.18}&\texttt{1.32}\\
+      $8192 \times 2048$&\texttt{ 91.74}&\texttt{1.04}\\
+      $16384 \times 4096$&\texttt{337.16}&\texttt{1.01}\\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{table}
 
 \section{GPU Programming}
 

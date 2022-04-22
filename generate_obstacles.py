@@ -1,5 +1,5 @@
-WIDTH = 2048
-HEIGHT = 1024
+WIDTH = 4096
+HEIGHT = 256
 
 f = open(f"obstacles_{WIDTH}x{HEIGHT}.dat", "w")
 

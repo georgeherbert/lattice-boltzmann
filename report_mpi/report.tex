@@ -4,6 +4,7 @@
 \usepackage{pgfplots}
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
+\usepackage{arydshln}
 \usepackage[UKenglish]{babel}
 \usepackage[UKenglish]{isodate}
 
@@ -178,9 +179,11 @@ I sought to investigate whether a hybrid implementation would execute faster tha
 Therefore, I produced an implementation of \texttt{d2q9-bgk.c} that ran with eight processes---one per socket across four nodes---communicating via MPI, with each process branching fourteen threads at specific points in the program.
 These specific points were identical to that in my OpenMP implementation: the outer loop in the \texttt{timestep} procedure, and the initialisation loops for the \texttt{obstacles} and \texttt{cells} arrays.
 
-Table \ref{tab:hybrid} displays the speedup over my prior implementation.
-I tested my program with an additional $2048 \times 2048$ grid, since the speedup was successively larger for the first four grid sizes, and I sought to identify whether the trend would continue.
-From Table \ref{tab:hybrid}, it is evident that the hybrid implementation executed faster for some grid sizes, but slower for others.
+I tested my program with the four grids provided, as well as three additional grids that I produced.
+Table \ref{tab:hybrid} displays the results of my experiment.
+The hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
+This was because, with the smaller grids, the overhead introduced by creating and synchronising OpenMP threads each timestep outweighed the performance benefit of fewer halo exchanges.
+However, the hybrid implementation excelled with the larger grids, since the overhead introduced by OpenMP was near identical, but the time spent performing halo exchanges increased dramatically. 
 
 \begin{table}[htbp]
   \begin{center}
@@ -189,11 +192,14 @@ From Table \ref{tab:hybrid}, it is evident that the hybrid implementation execut
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{ 0.66}&\texttt{}\\
-      $128 \times 256$&\texttt{ 0.66}&\texttt{}\\
-      $256 \times 256$&\texttt{ 1.90}&\texttt{}\\
-      $1024 \times 1024$&\texttt{ 3.15}&\texttt{}\\
-      $2048 \times 2048$&\texttt{12.67}&\texttt{1.29}\\
+      $128 \times 128$&\texttt{ \space0.66}&\texttt{}\\
+      $128 \times 256$&\texttt{ \space0.73}&\texttt{}\\
+      $256 \times 256$&\texttt{ \space1.93}&\texttt{}\\
+      $1024 \times 1024$&\texttt{ \space3.19}&\texttt{}\\
+      \hdashline
+      $4096 \times 1024$&\texttt{ 17.18}&\texttt{1.32}\\
+      $8192 \times 2048$&\texttt{ 91.74}&\texttt{1.04}\\
+      $16384 \times 4096$&\texttt{337.16}&\texttt{1.01}\\
       \hline
     \end{tabular}
   \end{center}

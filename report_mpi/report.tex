@@ -723,37 +723,6 @@ Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two imp
         (27, 13.31030358)
         (28, 13.09199604)
       };
-      \addlegendentry{$1024\times1024$ \textsubscript{MPI}}
-      \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x]coordinates{
-        (1)
-        (2, 2.173711193)
-        (3, 2.836895868)
-        (4, 4.036873172)
-        (5, 4.389001279)
-        (6, 5.250171877)
-        (7, 6.206328606)
-        (8, 6.884988543)
-        (9, 7.699455735)
-        (10, 7.326102008)
-        (11, 8.167957305)
-        (12, 9.202796572)
-        (13, 10.64605845)
-        (14, 11.79316736)
-        (15, 11.54612272)
-        (16, 13.36192713)
-        (17, 12.76637316)
-        (18, 14.4268392)
-        (19, 14.09500759)
-        (20, 15.37438851)
-        (21, 14.63591628)
-        (22, 15.99456741)
-        (23, 14.83351358)
-        (24, 16.4555638)
-        (25, 15.07849263)
-        (26, 16.68441375)
-        (27, 15.42876319)
-        (28, 16.17670295)
-      };
       \addlegendentry{$128\times128$ \textsubscript{OMP}}
       \addplot[color = {rgb:red,31;green,119;blue,180}, mark = x, dashed]coordinates{
         (1, 1.0)
@@ -784,6 +753,37 @@ Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two imp
         (26,8.000150678051229)
         (27,8.274732001825265)
         (28,8.256913368882064)
+      };
+      \addlegendentry{$1024\times1024$ \textsubscript{MPI}}
+      \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x]coordinates{
+        (1)
+        (2, 2.173711193)
+        (3, 2.836895868)
+        (4, 4.036873172)
+        (5, 4.389001279)
+        (6, 5.250171877)
+        (7, 6.206328606)
+        (8, 6.884988543)
+        (9, 7.699455735)
+        (10, 7.326102008)
+        (11, 8.167957305)
+        (12, 9.202796572)
+        (13, 10.64605845)
+        (14, 11.79316736)
+        (15, 11.54612272)
+        (16, 13.36192713)
+        (17, 12.76637316)
+        (18, 14.4268392)
+        (19, 14.09500759)
+        (20, 15.37438851)
+        (21, 14.63591628)
+        (22, 15.99456741)
+        (23, 14.83351358)
+        (24, 16.4555638)
+        (25, 15.07849263)
+        (26, 16.68441375)
+        (27, 15.42876319)
+        (28, 16.17670295)
       };
       \addlegendentry{$1024\times1024$ \textsubscript{OMP}}
       \addplot[color = {rgb:red,214;green,39;blue,40}, mark = x, dashed]coordinates{
@@ -816,30 +816,27 @@ Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two imp
         (27,15.16956075)
         (28,16.59876059)
       };
-      \addlegendentry{MPI}
-      \addplot[color = {rgb:red,255;green,127;blue,14}, mark = x]coordinates{
-      };
       \end{axis}
     \end{tikzpicture}
   }
   \caption{Speedup curves for my OpenMP and MPI implementation}\label{fig:scaling_openmp_mpi}
 \end{figure}
 
-My MPI implementation scaled better for the smaller size, whereas my OpenMP implementation scaled slightly better for the larger size.
+My MPI implementation scaled better for the smaller size, whereas my OpenMP implementation initially scaled slightly better for the larger size.
 This was because each implementation had a different overhead: in the OpenMP implementation, the overhead arose from the creation and synchronisation of threads each timestep; in the MPI implementation, the overhead arose from the halo exchange.
 The OpenMP overhead was largely constant, regardless of the grid size, whereas the MPI overhead was approximately proportional to the width of the grid.
 
 \subsection{Hybrid MPI and OpenMP}
 
+Having gained an understanding of how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementations would reduce the execution times for large, wide grid sizes.
+Therefore, I produced three additional grids to test my implementation with.
+
 Using my prior implementation as a starting point, I replaced the call to the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
+I parallelised the outer loop in the \texttt{timestep} procedure with OpenMP, and set the \texttt{I\_MPI\_PIN\_DOMAIN} environment variable to \texttt{socket}.
 
-
-I produced an implementation of \texttt{d2q9-bgk.c} that ran with eight processes---one per socket across four nodes---communicating via MPI, with each process branching fourteen threads at specific points in the program.
-These specific points were identical to that in my OpenMP implementation: the outer loop in the \texttt{timestep} procedure, and the initialisation loops for the \texttt{obstacles} and \texttt{cells} arrays.
-
-I tested my program with the four grids provided, as well as three additional grids that I produced.
+I tested my implementation with eight processes---one per socket across four nodes---communicating via MPI, with each process creating fourteen threads.
 Table \ref{tab:hybrid} displays the results of my experiment.
-The hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
+As anticipated, the hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
 
 \begin{table}[htbp]
   \begin{center}

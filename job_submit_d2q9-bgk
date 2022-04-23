@@ -26,4 +26,7 @@ export OCL_DEVICE=1
 ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
+./d2q9-bgk input_2048x2048.params obstacles_2048x2048.dat
+./d2q9-bgk input_4096x4096.params obstacles_4096x4096.dat
+./d2q9-bgk input_8192x8192.params obstacles_8192x8192.dat
 ./d2q9-bgk input_16384x16384.params obstacles_16384x16384.dat

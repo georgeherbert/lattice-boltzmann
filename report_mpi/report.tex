@@ -28,19 +28,19 @@
 
 \begin{abstract}
   \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
-  This report analyses the techniques I utilised to parallelise \texttt{d2q9-bgk.c} with MPI, and port \texttt{d2q9-bgk.c} to a GPU with OpenCL.
+  This report analyses the techniques I utilised to parallelise \texttt{d2q9-bgk.c} with MPI and port \texttt{d2q9-bgk.c} to a GPU with OpenCL.
 \end{abstract}
 
 \section{Single Program, Multiple Data}
 
 \subsection{Hypothesis}
 
-I previously achieved a substantial performance improvement producing a multithreaded implementation of \texttt{d2q9-bgk.c} with OpenMP.
-However, since OpenMP was built for shared-memory parallelism, my implementation could not utilise more than one node of BC4, which was a considerable restriction.
+The OpenMP implementation of \texttt{d2q9-bgk.c} with shared-memory parallelism achieved a substantial speedup over my serial implementation.
+However, it was limited to a single node of BC4, which was a considerable restriction.
 
 Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
 Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
-Therefore, I hypothessied that an implementation of \texttt{d2q9-bgk.c} with distributed memory parallelism that ran on multiple processes across multiple nodes---with MPI being used for interprocess communication---would provide an even more substantial performance improvement.
+Therefore, I hypothesised that implementing of \texttt{d2q9-bgk.c} with distributed memory parallelism that ran on multiple processes across multiple nodes---with MPI used for interprocess communication---would provide an even more significant speedup.
 
 \subsection{Compiler}
 
@@ -48,13 +48,14 @@ I used the \texttt{mpiicc} wrapper script, which compiled my program with the In
 
 \subsection{Load Balancing}
 
-I had to explicitly assign different sections of the grid to different processes.
-It was crucial for the distribution to be adequately balanced to minimise the amount of time processes' spent blocked.
+I had to assign different sections of the grid to different processes explicitly.
+The distribution needed to be adequately balanced to minimise the time processes' spent blocked.
 
-Since the \texttt{cells} grid was stored in row-major order, I split the grid horizontally between processes to take advantage of memory locality.
-I created a procedure \texttt{allocate\_rows} to balance the load; the procedure assigned each process at least $\lfloor\frac{y}{n}\rfloor$ consecutive rows, with the first $y - \lfloor\frac{y}{n}\rfloor n$ processes each assigned an additional consecutive row, where $y$ was the number of rows and $n$ the number of processes.
+Since the \texttt{cells} grid was in row-major order, I split the grid horizontally between processes to take advantage of memory locality.
+I created a procedure \texttt{allocate\_rows} to balance the load.
+The procedure assigned each process at least $\lfloor\frac{y}{n}\rfloor$ consecutive rows, with the first $y - \lfloor\frac{y}{n}\rfloor n$ processes each assigned an additional consecutive row, where $y$ was the number of rows and $n$ the number of processes.
 Additionally, since updating the value of a given cell required the values of all adjacent cells, each process contained two additional rows reserved for cells in the top and bottom rows of the preceding and succeeding ranks, respectively.
-Figure \ref{fig:rows} displays an example allocation for a grid with five rows, split between two processes; the rows allocated to a specific process are highlighted in green, with additional rows required to correctly updated the edge rows highlighted in red.
+Figure \ref{fig:rows} displays an example allocation for a grid with five rows split between two processes; the green rows are those allocated to the process, whilst the red rows are the additional rows required to update the edge rows correctly.
 
 \begin{figure}[htbp]
   \centering
@@ -62,37 +63,37 @@ Figure \ref{fig:rows} displays an example allocation for a grid with five rows, 
   \caption{Row allocation example with five rows and two processes}\label{fig:rows}
 \end{figure}
 
-I decided against splitting on a sub-row level to avoid unnecessarily increasing the complexity of my program and incurring an additional computational overhead.
+I decided against splitting on a sub-row level to avoid unnecessarily increasing the complexity of my program and incurring additional computational overhead.
 
 \subsection{Halo Exchange}
 
-Since processes are assigned their own virtual memory region, I had to explicitly send the contents of edge rows to neighbouring ranks at the conclusion of each timestep.
+Since processes are assigned an individual virtual memory region, I had to explicitly send the contents of edge rows to neighbouring ranks after each timestep.
 To do so, I created a \texttt{halo\_exchange} procedure.
 The procedure copied the bottom-most row allocated to each process into the \texttt{send\_row\_buffer} array.
 I used the \texttt{MPI\_Sendrecv} procedure to send this buffer to the \texttt{receive\_row\_buffer} of the preceding rank.
-The values in the \texttt{receive\_row\_buffer} were then copied into the top additional row.
+Then, the procedure copied the values in the \texttt{receive\_row\_buffer} into the additional upper row.
 The same process was then repeated for the top-most row, which was sent to the succeeding rank.
 
 \subsection{Collating}
 
-I created a \texttt{collate} procedure to be executed once all iterations of the \texttt{timestep} procedure were complete.
+I created a \texttt{collate} procedure that was executed once all iterations of the \texttt{timestep} procedure were complete.
 The procedure had two purposes.
-The first purpose was to transfer the the final state of the cells allocated to each process to the master process (i.e. rank zero).
-The second purpose was to transfer the partial average velocity values to the master process, and use these values to calculate the correct average velocity at each timestep.
+The first purpose was to transfer the final state of the cells allocated to each process to the master process (i.e. rank zero).
+The second purpose was to transfer the partial average velocity values to the master process and use these values to calculate the correct average velocity at each timestep.
 
 I used the \texttt{MPI\_Send} procedure to send the final state of the cells allocated to each process to the master process.
 The master process received these values by executing the \texttt{MPI\_Recv} procedure once for each process.
 
-I also used the \texttt{MPI\_Send} procedure to send the partial average velocity values held by each process to the master process.
-The master process received these arrays of values consecutively from each process using the \texttt{MPI\_Recv} procedure, and summed them into a global average velocities array.
-Once the arrays had been summed, the \texttt{colate} procedure multiplied each element by \texttt{params.num\_non\_obstacles\_r} in the master process to calculate the correct average velocity at each timestep.
+I also used the \texttt{MPI\_Send} procedure to send each process' partial average velocity values to the master process.
+The master process received these arrays of values consecutively from each process using the \texttt{MPI\_Recv} procedure and summed them into a global average velocities array.
+The \texttt{collate} procedure then multiplied each element by \texttt{params.num\_non\_obstacles\_r} in the master process to calculate the correct average velocity at each timestep.
 
 \subsection{Results}
 
 Table \ref{tab:mpi} displays the results of my MPI implementation.
-Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes; which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-My MPI implementation provided a substantial speedup over both my serial optimised implementation, as well as my OpenMP implementation.
-The speedup was primarily achieved by executing sections of the \texttt{timestep} procedure in parallel, and utilising 112 times more L1 and L2 cache, and 8 times more L3 cache.
+Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes, which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+My MPI implementation provided a substantial speedup over both my serial optimised implementation and my OpenMP implementation.
+My program achieved the speedup by executing sections of the \texttt{timestep} procedure in parallel, utilising 112 times more L1 and L2 cache and utilising eight times more L3 cache.
 
 \begin{table}[htbp]
   \begin{center}
@@ -147,10 +148,10 @@ The speedup was primarily achieved by executing sections of the \texttt{timestep
 \subsection{Average Velocities Reduction}
 
 I hypothesised I could use the \texttt{MPI\_Reduce} procedure to reduce the collation time of my program.
-Table \ref{tab:reduction} contains the collation times for this implementation, and speedup over the prior implementation.
+Table \ref{tab:reduction} contains the collation times for this implementation and speedup over the prior implementation.
 Using \texttt{MPI\_Reduce} led to a significant reduction in collation time.
-However, this did not make a large difference to the overall execution time due to the collation time being so short compared to the compute time.
-I would expect a more significant impact on the overall exeuction time for inputs containing more iterations.
+However, this did not significantly affect the overall execution time because the collation time was short compared to the compute time.
+I would expect a more significant impact on the overall execution time for inputs containing more iterations.
 
 \begin{table}[htbp]
   \begin{center}
@@ -173,7 +174,7 @@ I would expect a more significant impact on the overall exeuction time for input
 \subsection{Scaling}
 
 I ran my final MPI implementation from 1--112 processes to analyse how my program scaled.
-My program ran on as few nodes as possible, with each process was assigned to a single core. 
+My program ran on as few nodes as possible, with each process assigned to a single core. 
 I then calculated the subsequent processes' speedup over a single process implementation.
 Figure \ref{fig:scaling} displays the result speedup curves.
 
@@ -659,11 +660,19 @@ Figure \ref{fig:scaling} displays the result speedup curves.
   \caption{Speedup curves for my MPI implementation}\label{fig:scaling}
 \end{figure}
 
-My implementation initially scaled well for the smallest three grid sizes, but the speedup acquired from each subsequent process declined (i.e. a sublinear plateau), which occurred due to several reasons.
-Firstly, perfect linear scaling was theoretically impossible because the program contained serial sections.
+In general, my implementation initially scaled well for each grid size, but the speedup aquired from each subsequent process declined (i.e. a sublinear plateau).
+Perfect linear scaling was impossible to achieve for several reasons.
+Firstly, the program contained serial sections, notably the \texttt{initialisation} and \texttt{collate procedures}; in fact, the duration of the \texttt{collate} procedure increased with each additional process.
+Secondly, since the number of processes was rarely a factor of the $y$ length of the grid, there was often a small amount of load imbalance.
 
-My implementation followed a similar pattern for the $1024 \times 1024$ grid, however there was a clear increase in speedup after approximately 30 processes.
-The superlinear speedup at this point was caused by the largest problem size being split sufficiently small to fit into the L3 cache.
+Notably, larger grid sizes benefitted more from a distributed parallel implementation than the smaller grid sizes.
+Firstly, this was because the larger grids benefitted more from being split sufficiently small to fit into the lower cache levels with higher memory bandwidths.
+Secondly, the larger grid sizes were more evenly divided by the number of threads.
+
+There were some deviations from a pure sublinear plateau.
+For the $128\times128$ grid there was a small decline in speedup after 28 processes, which was due to the latency of the InfiniBand connection between nodes.
+In contrast, for the $1024\times1024$ grid, there was a clear increase in speedup after approximately 30 processes.
+As mentioned, the superlinear speedup at this point was caused by the largest problem size being split sufficiently small to fit into the L3 cache.
 
 \subsection{Comparison to Serial}
 
@@ -863,7 +872,7 @@ As anticipated, the hybrid implementation was slower with the smaller grids that
 GPUs typically have 3--5x the memory bandwidth, and 5--10x the peak FLOP/s that CPUs have.
 This is true for BC4, in which a single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth, and 9.8x the peak double precision performance than two Intel E5-2840 v4 CPUs have.
 OpenCL is a framework for heterogeneous computing that can be used for GPU programming.
-I sought to produce an implementation of LBM to run on a single NVIDIA Tesla P100 to identify how fast it could run.
+I sought to produce an implementation of LBM built with OpenCL.
 
 \subsection{Implementation}
 
@@ -874,15 +883,17 @@ I opted to keep my \texttt{cells} and \texttt{cells\_new} data in the SoA format
 
 I converted the \texttt{accelerate\_flow} and \texttt{timestep} procedures into kernels to run on the GPU.
 Transerring memory between host and device is a slow operation; therefore, I opted to store the partial average velocities of each timestep in global memory on the device.
-Each timestep, the \texttt{timestep} kernel performed a parallel reduction to sum the average velocities of each cell in the same work group.
-I opted to implement a parallel reduction to prevent a single item in the work group 
+Each timestep, the \texttt{timestep} kernel performed a parallel reduction to sum the velocities of each cell in the same work group.
+I opted to implement a parallel reduction to minimise the number of addition operations.
+I summed the average velocities of each work group on the host device once all iterations had been complete.
 
-
-Parallel reduction.
+Table \ref{tab:OpenCL} displays execution times of my OpenCL implementation ran on a single NVIDIA Tesla P100.
+I also calculated the speedup over my implementation built with distributed memory parallelism across four nodes of BC4.
+My OpenCL implementation was slower for the four grid sizes provided, but faster for the two grids I produced myself.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the OpenCL implementation and speedup over the serial implementation}\label{tab:OpenCL_1}
+  \caption{Execution times with the OpenCL implementation and speedup over the serial implementation}\label{tab:OpenCL}
   \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -901,23 +912,15 @@ Parallel reduction.
 
 \subsection{Work-Group Size}
 
-\begin{table}[htbp]
-  \begin{center}
-  \caption{Execution times with the OpenCL implementation and speedup over the prior implementation}\label{tab:OpenCL_2}
-  \begin{tabular}[t]{l | l l} 
-      \hline\hline
-      Grid Size&Time (s)&Speedup\\
-      \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
-      \hline
-    \end{tabular}
-  \end{center}
-\end{table}
+The size of the work-group has significant implications on performance.
+
+
+I previously used a local size of 16 cells in the $y$ direction, and 32 cells in the $x$ direction.
+
 
 \section{Conclusion}
+
+In conclusion, all three of the implementations I produced and tested significantly improved the performance of \texttt{d2q9-bgk.c}.
 
 \printbibliography
 

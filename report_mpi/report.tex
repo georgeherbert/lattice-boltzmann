@@ -834,7 +834,7 @@ Therefore, I produced three additional grids to test my implementation with.
 Using my prior implementation as a starting point, I replaced the call to the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
 I parallelised the outer loop in the \texttt{timestep} procedure with OpenMP, and set the \texttt{I\_MPI\_PIN\_DOMAIN} environment variable to \texttt{socket}.
 
-I tested my implementation with eight processes---one per CPU across four nodes---communicating via MPI, with each process creating fourteen threads.
+I tested my implementation with eight processes---one per socket across four nodes---communicating via MPI, with each process creating fourteen threads.
 Table \ref{tab:hybrid} displays the results of my experiment.
 As anticipated, the hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
 
@@ -861,12 +861,24 @@ As anticipated, the hybrid implementation was slower with the smaller grids that
 \section{GPU Programming}
 
 GPUs typically have 3--5x the memory bandwidth, and 5--10x the peak FLOP/s that CPUs have.
-This is true for BC4, in which the Nvidia Pascal P100 has 4.8x the memory bandwidth and 9.8x the performance that the Intel E5-2680 v4 has.
+This is true for BC4, in which a single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth, and 9.8x the peak double precision performance than two Intel E5-2840 v4 CPUs have.
 OpenCL is a framework for heterogeneous computing that can be used for GPU programming.
+I sought to produce an implementation of LBM to run on a single NVIDIA Tesla P100 to identify how fast it could run.
 
-I sought to identify whether I could produce an implementation of LBM in OpenCL to run on a single GPU in BCP4 that would be faster than my MPI implementation on one node.
+\subsection{Implementation}
 
-\subsection{Original Code}
+I used my serial optimised implementation as a starting point for my host program.
+To ensure my program was portable, I used the \texttt{clGetPlatformIDs} and \texttt{clGetDeviceIDs} procedures to produce an array of all devices available to the host program, and selected the device defined by the \texttt{OCL\_DEVICE} environment variable.
+For the selected device, I created a single context and a single in-order queue.
+I opted to keep my \texttt{cells} and \texttt{cells\_new} data in the SoA format, since coalesced memory accesses are key for high bandwidth.
+
+I converted the \texttt{accelerate\_flow} and \texttt{timestep} procedures into kernels to run on the GPU.
+Transerring memory between host and device is a slow operation; therefore, I opted to store the partial average velocities of each timestep in global memory on the device.
+Each timestep, the \texttt{timestep} kernel performed a parallel reduction to sum the average velocities of each cell in the same work group.
+I opted to implement a parallel reduction to prevent a single item in the work group 
+
+
+Parallel reduction.
 
 \begin{table}[htbp]
   \begin{center}
@@ -879,12 +891,15 @@ I sought to identify whether I could produce an implementation of LBM in OpenCL 
       $128 \times 256$&\texttt{}&\texttt{}\\
       $256 \times 256$&\texttt{}&\texttt{}\\
       $1024 \times 1024$&\texttt{}&\texttt{}\\
+      \hdashline
+      $2048 \times 2048$&\texttt{}&\texttt{}\\
+      $4096 \times 4096$&\texttt{}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}
 \end{table}
 
-\subsection{Optimisations}
+\subsection{Work-Group Size}
 
 \begin{table}[htbp]
   \begin{center}

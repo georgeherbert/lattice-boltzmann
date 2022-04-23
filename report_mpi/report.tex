@@ -822,11 +822,11 @@ Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two imp
   \caption{Speedup curves for my OpenMP and MPI implementation}\label{fig:scaling_openmp_mpi}
 \end{figure}
 
-My MPI implementation scaled better for the smaller size, whereas my OpenMP implementation initially scaled slightly better for the larger size.
+My MPI implementation scaled better for the smaller grid, whereas my OpenMP implementation initially scaled slightly better for the larger grid.
 This was because each implementation had a different overhead: in the OpenMP implementation, the overhead arose from the creation and synchronisation of threads each timestep; in the MPI implementation, the overhead arose from the halo exchange.
-The OpenMP overhead was largely constant, regardless of the grid size, whereas the MPI overhead was approximately proportional to the width of the grid.
+The OpenMP overhead was largely constant regardless of the grid size, whereas the MPI overhead was correlated with the width of the grid.
 
-\subsection{Hybrid MPI and OpenMP}
+\subsection{Implementation}
 
 Having gained an understanding of how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementations would reduce the execution times for large, wide grid sizes.
 Therefore, I produced three additional grids to test my implementation with.
@@ -834,7 +834,7 @@ Therefore, I produced three additional grids to test my implementation with.
 Using my prior implementation as a starting point, I replaced the call to the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
 I parallelised the outer loop in the \texttt{timestep} procedure with OpenMP, and set the \texttt{I\_MPI\_PIN\_DOMAIN} environment variable to \texttt{socket}.
 
-I tested my implementation with eight processes---one per socket across four nodes---communicating via MPI, with each process creating fourteen threads.
+I tested my implementation with eight processes---one per CPU across four nodes---communicating via MPI, with each process creating fourteen threads.
 Table \ref{tab:hybrid} displays the results of my experiment.
 As anticipated, the hybrid implementation was slower with the smaller grids that were provided, but faster with the larger grids that I produced myself.
 

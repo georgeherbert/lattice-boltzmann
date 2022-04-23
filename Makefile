@@ -3,7 +3,7 @@
 EXE=d2q9-bgk
 
 CC=icc
-CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX2 -qopenmp
+CFLAGS= -std=c99 -Wall -Ofast -restrict -xAVX2
 LIBS = -lm
 
 PLATFORM = $(shell uname -s)

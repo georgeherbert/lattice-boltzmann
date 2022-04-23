@@ -296,7 +296,6 @@ int main(int argc, char* argv[]) {
     err = clEnqueueReadBuffer(ocl.queue, ocl.cells_speeds_8, CL_TRUE, 0, sizeof(float) * params.nx * params.ny, cells->speeds_8, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
 
     err = clEnqueueReadBuffer(ocl.queue, ocl.av_vels_global, CL_TRUE, 0, sizeof(float) * params.num_work_groups * params.maxIters, av_vels_temp, 0, NULL, NULL); checkError(err, "reading cells data", __LINE__);
-    #pragma omp parallel for
     for (int i = 0; i < params.maxIters; i++) {
         av_vels[i] = 0.0f;
         for (int j = 0; j < params.num_work_groups; j++) {

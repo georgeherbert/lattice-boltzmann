@@ -20,22 +20,22 @@
   \texttt{cj19328@bristol.ac.uk}
 }
 
-\title{\vspace{-2em}Parallelising d2q9-bgk.c with MPI}
+\title{Parallelising the Lattice Boltzmann Method}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-  \texttt{d2q9-bgk.c} implements the Lattice Boltzmann method (LBM) to simulate a fluid density on a lattice.
-  This report analyses the techniques I utilised to parallelise \texttt{d2q9-bgk.c} with MPI and port \texttt{d2q9-bgk.c} to a GPU with OpenCL.
+  The Lattice Boltzmann method (LBM) simulates a fluid density on a lattice.
+  This report analyses the techniques I utilised to produce three implementations of LBM: one with distributed-memory parallelism, using Message Passing Interface (MPI) for interprocess communication; one hybrid, using a combination of MPI and OpenMP; the third used OpenCL to run on a GPU.
 \end{abstract}
 
 \section{Single Program, Multiple Data}
 
 \subsection{Hypothesis}
 
-The OpenMP implementation of \texttt{d2q9-bgk.c} with shared-memory parallelism achieved a substantial speedup over my serial implementation.
+My OpenMP implementation of \texttt{d2q9-bgk.c} with shared-memory parallelism achieved a substantial speedup over my serial implementation.
 However, it was limited to a single node of BC4, which was a considerable restriction.
 
 Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
@@ -45,6 +45,7 @@ Therefore, I hypothesised that implementing of \texttt{d2q9-bgk.c} with distribu
 \subsection{Compiler}
 
 I used the \texttt{mpiicc} wrapper script, which compiled my program with the Intel C Compiler Classic (version 19.1.3.304) and set up the include and library paths for the Intel MPI library.
+I compiled my program with the \texttt{-std=c99}, \texttt{-Wall}, \texttt{-Ofast}, \texttt{-restrict} and \texttt{-xAVX2} options.
 
 \subsection{Load Balancing}
 
@@ -69,9 +70,10 @@ I decided against splitting on a sub-row level to avoid unnecessarily increasing
 
 Since processes are assigned an individual virtual memory region, I had to explicitly send the contents of edge rows to neighbouring ranks after each timestep.
 To do so, I created a \texttt{halo\_exchange} procedure.
-The procedure copied the bottom-most row allocated to each process into the \texttt{send\_row\_buffer} array.
+The procedure copied the bottom-most row allocated to the process into the \texttt{send\_row\_buffer} array.
+Since the \texttt{cells} data was in the structure of arrays (SoA) format, the values from the nine separate arrays of speeds had to be packed into the buffer.
 I used the \texttt{MPI\_Sendrecv} procedure to send this buffer to the \texttt{receive\_row\_buffer} of the preceding rank.
-Then, the procedure copied the values in the \texttt{receive\_row\_buffer} into the additional upper row.
+Then, the procedure copied the values into the additional upper row---unpacking the values into the nine separate arrays of speeds.
 The same process was then repeated for the top-most row, which was sent to the succeeding rank.
 
 \subsection{Collating}
@@ -115,39 +117,9 @@ My program achieved the speedup by executing sections of the \texttt{timestep} p
 
 \section{Optimisations}
 
-% \subsection{Vectorization}
-
-% I hypothesised that SIMD vectorization of the inner loop would drastically improve the performance of my MPI implementation, as it did with my serial optimised implementation previously.
-% Therefore, I made the same changes as I did with my serial optimised implementation, including converting the cells' data from an array of structures (AoS) to a structure of arrays (SoA) format.
-% Implementing the SoA format meant that the \texttt{halo\_exchange} procedure had to be altered since the \texttt{MPI\_Sendrecv} procedure required the address of a single buffer as input.
-
-% I could have implemented nine separate \texttt{MPI\_Sendrecv} procedures---one for each speed.
-% However, I instead decided to copy each of the nine speeds into a single array, followed by a single call to the \texttt{MPI\_Sendrecv}.
-% I selected this route, since each call to the \texttt{MPI\_Sendrecv} procedure has an associated overhead.
-% However, this is why I did not enforce SIMD vectorization in my prior implementation, since I could not be certain the performance benefit gained would outwigh the drawback to performance that arises from copying the nine speeds into a single array.
-
-% Table \ref{tab:simd} displays the execution times and speedup after enforcing SIMD vectorization.
-% Enforcing SIMD vectorization provided a substantial speedup.
-
-% \begin{table}[htbp]
-%   \begin{center}
-%   \caption{Execution times after enforcing SIMD vectorization and speedup over the prior implementation}\label{tab:simd}
-%   \begin{tabular}[t]{l | l l} 
-%       \hline\hline
-%       Grid Size&Time (s)&Speedup\\
-%       \hline
-%       $128 \times 128$&\texttt{}&\texttt{}\\
-%       $128 \times 256$&\texttt{}&\texttt{}\\
-%       $256 \times 256$&\texttt{}&\texttt{}\\
-%       $1024 \times 1024$&\texttt{}&\texttt{}\\
-%       \hline
-%     \end{tabular}
-%   \end{center}
-% \end{table}
-
 \subsection{Average Velocities Reduction}
 
-I hypothesised I could use the \texttt{MPI\_Reduce} procedure to reduce the collation time of my program.
+I hypothesised I could use the \texttt{MPI\_Reduce} procedure to speed up the collation time of my program.
 Table \ref{tab:reduction} contains the collation times for this implementation and speedup over the prior implementation.
 Using \texttt{MPI\_Reduce} led to a significant reduction in collation time.
 However, this did not significantly affect the overall execution time because the collation time was short compared to the compute time.
@@ -666,7 +638,7 @@ Firstly, the program contained serial sections, notably the \texttt{initialisati
 Secondly, since the number of processes was rarely a factor of the $y$ length of the grid, there was often a small amount of load imbalance.
 
 Notably, larger grid sizes benefitted more from a distributed parallel implementation than the smaller grid sizes.
-Firstly, this was because the larger grids benefitted more from being split sufficiently small to fit into the lower cache levels with higher memory bandwidths.
+Firstly, this was because the larger grids benefitted more from being split sufficiently small to fit into the smaller cache levels with higher memory bandwidths.
 Secondly, the larger grid sizes were more evenly divided by the number of threads.
 
 There were some deviations from a pure sublinear plateau.
@@ -676,14 +648,32 @@ As mentioned, the superlinear speedup at this point was caused by the largest pr
 
 \subsection{Comparison to Serial}
 
+My MPI implementation achieved a substantial speedup over my serial implementation.
+I used the Intel Advisor tool to analyse the performance of my two implementations, as shown in Figure \ref{fig:roofline}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{roofline.png}
+  \caption{Roofline model of the \texttt{timestep} loop run on the $1024\times1024$ test case}\label{fig:roofline}
+\end{figure}
+
+On the $1024 \times 1024$ test case, each process in my MPI implementation achieved an arithmetic intensity of 0.533 FLOP/Byte and 16.905 FLOP/s of performance during the \texttt{timestep} procedure.
+Compared to my serial implementation, the arithmetic intensity was approximately identical, which was expected since I made very few changes to the procedure.
+However, the performance increased by 35\% because the program did not have to interact with the DRAM, which had a lower bandwidth, as often.
+For example, in the \texttt{timestep} procedure in my MPI implementation, less than 0.01 GB of data was passed through DRAM.
+In comparison, in my serial implementation, 2306.03 GB of data was passed through the DRAM.
+
+My MPI implementation had a large overhead introduced by the \texttt{halo\_exchange} procedure.
+In fact, when ran with 112 ranks on the $1024\times1024$ test case, 23\% of the compute time of my program was spent in this procedure.
+
 \section{Hybrid MPI and OpenMP}
 
-I sought to investigate whether a hybrid implementation would execute faster than my prior implementation.
+I sought to investigate whether a hybrid implementation that used both MPI and OpenMP would execute faster than my prior implementation.
 
 \subsection{OpenMP vs MPI Scaling}
 
-Before producing my hybrid implementation, I compared the speedup curves of my distributed memory parallelism implementation built with MPI with my shared-memory parallelism implementation built with OpenMP.
-Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two implementations with the $128 \times 128$ and the $1024 \times 1024$ grid sizes.
+Before producing my hybrid implementation, I compared the speedup curves of my MPI implementation to those of my OpenMP implementation.
+Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two implementations for the $128 \times 128$ and the $1024 \times 1024$ grid sizes.
 
 \begin{figure}[htpb]
   \centering
@@ -870,7 +860,7 @@ As anticipated, the hybrid implementation was slower with the smaller grids that
 \section{GPU Programming}
 
 GPUs typically have 3--5x the memory bandwidth, and 5--10x the peak FLOP/s that CPUs have.
-This is true for BC4, in which a single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth, and 9.8x the peak double precision performance than two Intel E5-2840 v4 CPUs have.
+This is true for BC4, in which a single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth, and 9.8x the peak double precision performance that two Intel E5-2840 v4 CPUs have \cite{youtube}.
 OpenCL is a framework for heterogeneous computing that can be used for GPU programming.
 I sought to produce an implementation of LBM built with OpenCL.
 

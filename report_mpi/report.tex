@@ -35,7 +35,7 @@
 
 \subsection{Hypothesis}
 
-My OpenMP implementation of \texttt{d2q9-bgk.c} with shared-memory parallelism achieved a substantial speedup over my serial implementation.
+My OpenMP implementation of \texttt{d2q9-bgk.c} with shared-memory parallelism achieved a substantial speedup over my optimised serial implementation.
 However, it was limited to a single node of BC4, which was a considerable restriction.
 
 Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
@@ -94,12 +94,12 @@ The \texttt{collate} procedure then multiplied each element by \texttt{params.nu
 
 Table \ref{tab:mpi} displays the results of my MPI implementation.
 Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes, which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-My MPI implementation provided a substantial speedup over both my serial optimised implementation and my OpenMP implementation.
+My MPI implementation provided a substantial speedup over both my optimised  implementation and my OpenMP implementation.
 My program achieved the speedup by executing sections of the \texttt{timestep} procedure in parallel, utilising 112 times more L1 and L2 cache and utilising eight times more L3 cache.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the 112 process MPI implementation and speedup over both my serial optimised and 28 thread OpenMP implementation}\label{tab:mpi}
+  \caption{Execution times with the 112 process MPI implementation and speedup over both my optimised serial and 28 thread OpenMP implementation}\label{tab:mpi}
   \begin{tabular}[t]{l | l  l  l} 
       \hline\hline
       &&\multicolumn{2}{c}{Speedup}\\
@@ -142,6 +142,29 @@ I would expect a more significant impact on the overall execution time for input
 \end{table}
 
 \section{Analysis}
+
+\subsection{Comparison to Optimised Serial}
+
+My MPI implementation achieved a substantial speedup over my optimised serial implementation.
+To identify the merits and demerits of both implementations, I used the Intel Advisor tool to analyse their performances.
+
+as shown in Figure \ref{fig:roofline}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{roofline.png}
+  \caption{Roofline model of the \texttt{timestep} loop run on the $1024\times1024$ test case}\label{fig:roofline}
+\end{figure}
+
+On the $1024 \times 1024$ test case, each process in my MPI implementation achieved an arithmetic intensity of 0.533 FLOP/Byte and 16.905 FLOP/s of performance during the \texttt{timestep} procedure.
+Compared to my optimised serial implementation, the arithmetic intensity was approximately identical, which was expected since I made very few changes to the procedure.
+However, the performance increased by 35\% because the program did not have to interact with the DRAM, which had a lower bandwidth, as often.
+For example, in the \texttt{timestep} procedure in my MPI implementation, less than 0.01 GB of data was passed through DRAM.
+In comparison, in my optimised serial implementation, 2306.03 GB of data was passed through the DRAM.
+
+My MPI implementation had a large overhead introduced by the \texttt{halo\_exchange} procedure.
+In fact, when ran with 112 ranks on the $1024\times1024$ test case, 23\% of the compute time of my program was spent in this procedure.
+
 
 \subsection{Scaling}
 
@@ -646,26 +669,6 @@ For the $128\times128$ grid there was a small decline in speedup after 28 proces
 In contrast, for the $1024\times1024$ grid, there was a clear increase in speedup after approximately 30 processes.
 As mentioned, the superlinear speedup at this point was caused by the largest problem size being split sufficiently small to fit into the L3 cache.
 
-\subsection{Comparison to Serial}
-
-My MPI implementation achieved a substantial speedup over my serial implementation.
-I used the Intel Advisor tool to analyse the performance of my two implementations, as shown in Figure \ref{fig:roofline}.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{roofline.png}
-  \caption{Roofline model of the \texttt{timestep} loop run on the $1024\times1024$ test case}\label{fig:roofline}
-\end{figure}
-
-On the $1024 \times 1024$ test case, each process in my MPI implementation achieved an arithmetic intensity of 0.533 FLOP/Byte and 16.905 FLOP/s of performance during the \texttt{timestep} procedure.
-Compared to my serial implementation, the arithmetic intensity was approximately identical, which was expected since I made very few changes to the procedure.
-However, the performance increased by 35\% because the program did not have to interact with the DRAM, which had a lower bandwidth, as often.
-For example, in the \texttt{timestep} procedure in my MPI implementation, less than 0.01 GB of data was passed through DRAM.
-In comparison, in my serial implementation, 2306.03 GB of data was passed through the DRAM.
-
-My MPI implementation had a large overhead introduced by the \texttt{halo\_exchange} procedure.
-In fact, when ran with 112 ranks on the $1024\times1024$ test case, 23\% of the compute time of my program was spent in this procedure.
-
 \section{Hybrid MPI and OpenMP}
 
 I sought to investigate whether a hybrid implementation that used both MPI and OpenMP would execute faster than my prior implementation.
@@ -859,17 +862,17 @@ As anticipated, the hybrid implementation was slower with the smaller grids that
 
 \section{GPU Programming}
 
+OpenCL is a framework for heterogeneous computing that can be used for GPU programming.
 GPUs typically have 3--5x the memory bandwidth, and 5--10x the peak FLOP/s that CPUs have.
 This is true for BC4, in which a single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth, and 9.8x the peak double precision performance that two Intel E5-2840 v4 CPUs have \cite{youtube}.
-OpenCL is a framework for heterogeneous computing that can be used for GPU programming.
-I sought to produce an implementation of LBM built with OpenCL.
+Therefore, I sought to produce an implementation of LBM built with OpenCL to run on a GPU.
 
 \subsection{Implementation}
 
-I used my serial optimised implementation as a starting point for my host program.
+I used my optimised serial implementation as a starting point for my host program.
 To ensure my program was portable, I used the \texttt{clGetPlatformIDs} and \texttt{clGetDeviceIDs} procedures to produce an array of all devices available to the host program, and selected the device defined by the \texttt{OCL\_DEVICE} environment variable.
 For the selected device, I created a single context and a single in-order queue.
-I opted to keep my \texttt{cells} and \texttt{cells\_new} data in the SoA format, since coalesced memory accesses are key for high bandwidth.
+I kept \texttt{cells} and \texttt{cells\_new} data in the SoA format, since coalesced memory accesses were key for high bandwidth.
 
 I converted the \texttt{accelerate\_flow} and \texttt{timestep} procedures into kernels to run on the GPU.
 Transerring memory between host and device is a slow operation; therefore, I opted to store the partial average velocities of each timestep in global memory on the device.
@@ -877,13 +880,14 @@ Each timestep, the \texttt{timestep} kernel performed a parallel reduction to su
 I opted to implement a parallel reduction to minimise the number of addition operations.
 I summed the average velocities of each work group on the host device once all iterations had been complete.
 
-Table \ref{tab:OpenCL} displays execution times of my OpenCL implementation ran on a single NVIDIA Tesla P100.
-I also calculated the speedup over my implementation built with distributed memory parallelism across four nodes of BC4.
-My OpenCL implementation was slower for the four grid sizes provided, but faster for the two grids I produced myself.
+Table \ref{tab:OpenCL} displays execution times of my OpenCL implementation when run on a single NVIDIA Tesla P100, and speedup over my MPI implementation when ran with 28 processes on a single node of BC4.
+The OpenCL implementation was slower for the smaller grid sizes, but faster for the larger grid sizes.
+One reason for this was because for the smaller grids, the time spent by the host program to set up and manage the environment, and to create and manage the kernels represented a greater proportion of the runtime.
+Another reason was because the smaller grids fitted into the smaller cache levels with higher memory bandwidths on my MPI implementation.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Execution times with the OpenCL implementation and speedup over the serial implementation}\label{tab:OpenCL}
+  \caption{Execution times with the OpenCL implementation and speedup over my optimised serial implementation}\label{tab:OpenCL}
   \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -892,9 +896,6 @@ My OpenCL implementation was slower for the four grid sizes provided, but faster
       $128 \times 256$&\texttt{}&\texttt{}\\
       $256 \times 256$&\texttt{}&\texttt{}\\
       $1024 \times 1024$&\texttt{}&\texttt{}\\
-      \hdashline
-      $2048 \times 2048$&\texttt{}&\texttt{}\\
-      $4096 \times 4096$&\texttt{}&\texttt{}\\
       \hline
     \end{tabular}
   \end{center}

@@ -67,8 +67,8 @@
 #define FINALSTATEFILE "final_state.dat"
 #define AVVELSFILE "av_vels.dat"
 #define OCLFILE "kernels.cl"
-#define NX_LOCAL 32
-#define NY_LOCAL 16
+#define NX_LOCAL 128
+#define NY_LOCAL 1
 
 /* struct to hold the parameter values */
 typedef struct {

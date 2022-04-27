@@ -903,7 +903,10 @@ Another reason was because the smaller grids fitted into the smaller cache level
 
 \subsection{Work-Group Size}
 
-The size of the work-group has significant implications on performance.
+In OpenCL, kernels execute in parallel over a predefined N-dimensional domain, whereby independent element of execution within this domain is known as a work-item.
+These work-items are often grouped together into independent work-groups.
+I previously used a 
+
 
 
 I previously used a local size of 16 cells in the $y$ direction, and 32 cells in the $x$ direction.

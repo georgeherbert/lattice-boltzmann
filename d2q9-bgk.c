@@ -163,10 +163,6 @@ int main(int argc, char* argv[]) {
     int tag = 0;
     int provided;
 
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
-    MPI_Comm_size(MPI_COMM_WORLD, &(params.size));
-    MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
-
     /* parse the command line */
     if (argc != 3) {
         usage(argv[0]);
@@ -180,6 +176,10 @@ int main(int argc, char* argv[]) {
     gettimeofday(&timstr, NULL);
     tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
     init_tic=tot_tic;
+
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    MPI_Comm_size(MPI_COMM_WORLD, &(params.size));
+    MPI_Comm_rank(MPI_COMM_WORLD, &(params.rank));
 
     initialise(paramfile, obstaclefile, &params, &cells, &cells_new, &obstacles, &obstacles_output, &av_vels, &av_vels_global,
         &send_row_buffer, &receive_row_buffer, &send_section_buffer, &receive_section_buffer, &cells_global);

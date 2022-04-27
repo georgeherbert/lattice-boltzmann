@@ -30,7 +30,4 @@ mpirun ./d2q9-bgk input_128x256.params obstacles_128x256.dat
 mpirun ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 mpirun ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
 
-mpirun ./d2q9-bgk input_2048x1024.params obstacles_2048x1024.dat
-mpirun ./d2q9-bgk input_4096x1024.params obstacles_4096x1024.dat
-mpirun ./d2q9-bgk input_8192x1024.params obstacles_8192x1024.dat
-mpirun ./d2q9-bgk input_16384x1024.params obstacles_16384x1024.dat
+mpirun ./d2q9-bgk input_131072x128.params obstacles_131072x128.dat

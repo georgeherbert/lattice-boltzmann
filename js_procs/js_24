@@ -8,7 +8,7 @@
 #SBATCH --reservation=COSC026662
 #SBATCH --account=COSC026662
 #SBATCH --output d2q9-bgk_24.out
-#SBATCH --exclude=compute100,compute101,compute102,compute103,compute104,compute105,compute109,compute111,compute117,compute121,compute127,compute216,compute300
+#SBATCH --exclude=compute101,compute102,compute103,compute108,compute109,compute110,compute111,compute117,compute121,compute127,compute216,compute300
 #SBATCH --exclusive
 
 echo Running on host `hostname`

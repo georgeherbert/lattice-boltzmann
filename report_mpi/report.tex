@@ -823,21 +823,27 @@ Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two imp
   \caption{Speedup curves for my OpenMP and MPI implementation}\label{fig:scaling_openmp_mpi}
 \end{figure}
 
-My MPI implementation scaled better for the smaller grid, whereas my OpenMP implementation initially scaled slightly better for the larger grid.
-The scaling differences occurred because each implementation had a different overhead: in the OpenMP implementation, the overhead arose from the creation and synchronisation of threads each timestep; in the MPI implementation, the overhead arose from the halo exchange.
-The OpenMP overhead was essentially constant regardless of the grid size, whereas the MPI overhead was correlated with the grid's width.
+My OpenMP implementation scaled better for the smaller grid, and both implementations scaled approximately equally as well for the larger grid.
+The scaling difference occurred because each implementation had different overheads.
+In my OpenMP implementation, the overhead arose from the creation and synchronisation of threads each timestep.
+In my MPI implementation, the overhead arose from the initialisation of the MPI environment and the halo exchange.
+For smaller grids, the MPI initialisation dominated the execution time of the program; in fact, for the $128 \times 128$ grid, the initialisation section of the program constituted 70\% of the total execution time.
+Moreover, the initialisation time actually initially increased as the number of processes increased.
+This meant that the MPI implementation scaled significantly worse for the smaller grid.
+However, the compute time of my MPI implementation was actually shorter for each grid size, due to the overhead introduced by OpenMP.
+Therefore, for the larger grid size, in which the compute time constituted a larger proportion of the total runtime, both implementations scaled equally as well.
 
 \subsection{Implementation}
 
-Having understood of how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementation would reduce the execution times for large, wide grids.
-Therefore, I produced three additional grids to test my implementation.
+Having understood of how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementation would reduce the execution times for small grids due to the proportionally large initialisation time of the MPI environment.
+Furthermore, I also hypothesised that a hybrid implementation would reduce the execution times for grids with a small $y$-length, but a significantly large $x$-length because I believed the overhead introduced by the high number of large halo exchanges would be more significant than the overhead introduced by creating and synchronising OpenMP threads; I produced an additional grid to test this hypothesis.
 
 Using my prior implementation as a starting point, I replaced the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
 I parallelised the outer loop in the \texttt{timestep} procedure with OpenMP and set the \texttt{I\_MPI\_PIN\_DOMAIN} environment variable to \texttt{socket}.
 
 I tested my implementation with eight processes---one per socket across four nodes---communicating via MPI, with each process creating fourteen threads.
 Table \ref{tab:hybrid} displays the results of my experiment.
-As anticipated, the hybrid implementation was slower with the smaller grids provided but faster with my produced grids.
+As anticipated, the hybrid implementation was faster for the smaller grids, and the grid I produced myself.
 
 \begin{table}[htbp]
   \begin{center}
@@ -846,14 +852,12 @@ As anticipated, the hybrid implementation was slower with the smaller grids prov
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{}&\texttt{}\\
-      $128 \times 256$&\texttt{}&\texttt{}\\
-      $256 \times 256$&\texttt{}&\texttt{}\\
-      $1024 \times 1024$&\texttt{}&\texttt{}\\
+      $128 \times 128$&\texttt{ \space1.13}&\texttt{1.04}\\
+      $128 \times 256$&\texttt{ \space1.19}&\texttt{1.05}\\
+      $256 \times 256$&\texttt{ \space2.37}&\texttt{0.90}\\
+      $1024 \times 1024$&\texttt{ \space3.63}&\texttt{0.90}\\
       \hdashline
-      $4096 \times 1024$&\texttt{}&\texttt{}\\
-      $8192 \times 1024$&\texttt{}&\texttt{}\\
-      $16384 \times 1024$&\texttt{}&\texttt{}\\
+      $131072 \times 128$&\texttt{445.66}&\texttt{2.23}\\
       \hline
     \end{tabular}
   \end{center}
@@ -881,7 +885,7 @@ I opted to implement a parallel reduction to minimise the number of addition ope
 I summed the average velocities of each work-group on the host device once all iterations had been complete.
 
 Table \ref{tab:OpenCL} displays my OpenCL implementation's execution times when run on a single BC4 GPU node, and speedup over my 28 process MPI implementation run on a single compute node.
-The OpenCL implementation was slower for the smaller grid sizes but faster for the largest grid size.
+The OpenCL implementation was slower for the smaller two rid sizes but faster for the larger two grid size.
 One reason for this was because for the smaller grids, the time taken by the host program to create and build the program, set up and manage the environment, and create and manage the kernels represented a far more significant proportion of the runtime.
 For example, for the $128 \times 128$ grid, creating and building the program constituted almost 60\% of the total execution time of my OpenCL program.
 Another reason was that the smaller grids fitted into the smaller cache levels with higher memory bandwidths on my MPI implementation.
@@ -893,10 +897,10 @@ Another reason was that the smaller grids fitted into the smaller cache levels w
       \hline\hline
       Grid Size&Time (s)&Speedup\\
       \hline
-      $128 \times 128$&\texttt{1.85}&\texttt{}\\
-      $128 \times 256$&\texttt{1.83}&\texttt{}\\
-      $256 \times 256$&\texttt{2.69}&\texttt{}\\
-      $1024 \times 1024$&\texttt{4.81}&\texttt{}\\
+      $128 \times 128$&\texttt{1.83}&\texttt{0.71}\\
+      $128 \times 256$&\texttt{1.85}&\texttt{0.83}\\
+      $256 \times 256$&\texttt{2.69}&\texttt{1.17}\\
+      $1024 \times 1024$&\texttt{4.81}&\texttt{2.83}\\
       \hline
     \end{tabular}
   \end{center}
@@ -913,7 +917,7 @@ The optimal local size was $64$ cells in the $x$-direction, and two cells in the
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{wg_size.png}
+  \includegraphics[width=0.75\linewidth]{wg_size.png}
   \caption{Compute times for the $128\times128$ grid with different local sizes}\label{fig:wg_size}
 \end{figure}
 

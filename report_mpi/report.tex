@@ -92,7 +92,7 @@ The \texttt{collate} procedure then multiplied each element by \texttt{params.nu
 
 \subsection{Results}
 
-Table \ref{tab:mpi} displays the results of 112 process my MPI implementation.
+Table \ref{tab:mpi} displays the results of my 112 process MPI implementation.
 Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes, which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
 My MPI implementation provided a substantial speedup over my optimised serial implementation and my OpenMP implementation.
 My program achieved the speedup over my optimised serial implementation by executing sections of the \texttt{timestep} procedure in parallel, utilising 112 times more L1 and L2 cache and eight times more L3 cache.
@@ -116,15 +116,13 @@ My program achieved the speedup over my optimised serial implementation by execu
   \vspace{-1em}
 \end{table}
 
-\section{Optimisations}
+\subsection{Reduction Optimisation}
 
-\subsection{Average Velocities Reduction}
-
-I hypothesised I could use the \texttt{MPI\_Reduce} procedure to speed up the collation time of my program.
+I hypothesised that using the \texttt{MPI\_Reduce} procedure to compute the average velocities would speed up the collation time of my program.
 Table \ref{tab:reduction} contains the collation times for this implementation and speedup over the prior implementation.
 Using \texttt{MPI\_Reduce} led to a significant reduction in collation time.
-However, this did not significantly affect the overall execution time because the collation time was significantly shorter the compute time.
-I would expect a more significant impact on the overall execution time for inputs containing more iterations.
+However, this did not significantly affect the overall execution time because the collation time was significantly shorter than the compute time.
+There would be a more significant impact on the overall execution time for inputs with more iterations.
 
 \begin{table}[htbp]
   \begin{center}
@@ -160,8 +158,8 @@ Figure \ref{fig:roofline} displays a roofline chart for the \texttt{timestep} pr
 On the $1024 \times 1024$ test case, each process in my MPI implementation achieved an arithmetic intensity of 0.533 FLOP/Byte and 16.905 FLOP/s of performance during the \texttt{timestep} procedure.
 The arithmetic intensity was similar to my optimised serial implementation because I made only minor changes to the procedure.
 However, the performance increased by 35\% due to fewer interactions with the DRAM, which had a lower memory bandwidth.
-For example, the \texttt{timestep} procedure in my MPI implementation, less than 0.01 GB of data was passed through DRAM.
-In comparison 2306.03 GB of data was passed through the DRAM in my optimised serial implementation.
+For example, in the \texttt{timestep} procedure in my MPI implementation, less than 0.01 GB of data was passed through DRAM.
+In comparison, 2306.03 GB of data was passed through the DRAM in my optimised serial implementation.
 
 My MPI implementation had a significant overhead introduced by the \texttt{halo\_exchange} procedure.
 When executed for the $1024\times1024$ test case with 112 processes, my program spent 23\% of the compute time in this procedure.
@@ -655,17 +653,17 @@ Figure \ref{fig:scaling} displays the resultant speedup curves.
   \caption{Speedup curves for my MPI implementation}\label{fig:scaling}
 \end{figure}
 
-In general, my implementation initially scaled well for each grid size, but the speedup acquired from each subsequent process declined (i.e. a sublinear plateau).
+In general, my implementation initially scaled well for each grid, but the speedup acquired from each subsequent process declined (i.e. a sublinear plateau).
 Perfect linear scaling was impossible to achieve for several reasons.
 Firstly, the program contained serial sections, notably the \texttt{initialisation} and \texttt{collate} procedures; in fact, the duration of the \texttt{collate} procedure increased with each additional process.
 Secondly, since the number of processes was rarely a factor of the grid's $y$-length, there was often a tiny load imbalance.
 
-Notably, larger grid sizes benefitted more from a distributed parallel implementation than the smaller ones, which occurred for several reasons.
+Notably, larger grids benefitted more from a distributed parallel implementation than the smaller ones, which occurred for several reasons.
 Firstly, the larger grids benefitted more from being split sufficiently small to fit into the smaller cache levels with higher memory bandwidths.
-Secondly, the larger grid sizes were more evenly divided by the number of threads.
+Secondly, the larger grids were more evenly divided by the number of threads.
 
 There were some deviations from a pure sublinear plateau.
-For the $1024\times1024$ grid, there was an apparent increase in the rate of speedup after approximately 30 processes.
+For the $1024\times1024$ grid, there was an apparent increase in speedup rate after approximately 30 processes.
 As mentioned, the superlinear speedup at this point occurred because the grid was split sufficiently small to fit into the L3 cache.
 
 \section{Hybrid MPI and OpenMP}
@@ -675,7 +673,7 @@ I sought to investigate whether a hybrid implementation that used MPI and OpenMP
 \subsection{OpenMP vs MPI Scaling}
 
 Before producing my hybrid implementation, I compared the speedup curves of my MPI implementation to those of my OpenMP implementation.
-Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two implementations for the $128 \times 128$ and the $1024 \times 1024$ grid sizes.
+Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two implementations for the $128 \times 128$ and the $1024 \times 1024$ grids.
 
 \begin{figure}[htpb]
   \centering
@@ -825,25 +823,26 @@ Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two imp
 
 My OpenMP implementation scaled better for the smaller grid, and both implementations scaled approximately equally as well for the larger grid.
 The scaling difference occurred because each implementation had different overheads.
-In my OpenMP implementation, the overhead arose from the creation and synchronisation of threads each timestep.
+The overhead arose from creating and synchronising threads with each timestep in my OpenMP implementation.
 In my MPI implementation, the overhead arose from the initialisation of the MPI environment and the halo exchange.
-For smaller grids, the MPI initialisation dominated the execution time of the program; in fact, for the $128 \times 128$ grid, the initialisation section of the program constituted 70\% of the total execution time.
-Moreover, the initialisation time actually initially increased as the number of processes increased.
-This meant that the MPI implementation scaled significantly worse for the smaller grid.
-However, the compute time of my MPI implementation was actually shorter for each grid size, due to the overhead introduced by OpenMP.
-Therefore, for the larger grid size, in which the compute time constituted a larger proportion of the total runtime, both implementations scaled equally as well.
+For smaller grids, the MPI environment initialisation dominated my program's execution time; for the $128 \times 128$ grid, the initialisation section of the program constituted 70\% of the total execution time.
+Moreover, the initialisation time initially increased as the number of processes increased.
+The proportionally large initialisation time meant that the the MPI implementation scaled significantly worse for the smaller grid.
+However, the compute time of my MPI implementation was shorter for each grid due to the overhead introduced by OpenMP.
+Therefore, for the larger grid, in which the compute time constituted a more significant proportion of the total runtime, both implementations scaled equally.
 
 \subsection{Implementation}
 
-Having understood of how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementation would reduce the execution times for small grids due to the proportionally large initialisation time of the MPI environment.
-Furthermore, I also hypothesised that a hybrid implementation would reduce the execution times for grids with a small $y$-length, but a significantly large $x$-length because I believed the overhead introduced by the high number of large halo exchanges would be more significant than the overhead introduced by creating and synchronising OpenMP threads; I produced an additional grid to test this hypothesis.
+Having understood how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementation would reduce the execution times for small grids due to the proportionally large initialisation time of the MPI environment.
+Furthermore, I also hypothesised that a hybrid implementation would reduce the execution times for grids with a small $y$-length, but a significantly large $x$-length.
+I believed the overhead introduced by the high number of large halo exchanges would be more significant than the overhead introduced by creating and synchronising OpenMP threads; I produced an additional grid to test this hypothesis.
 
-Using my prior implementation as a starting point, I replaced the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
+Using my prior implementation as a starting point, I replaced the call to the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
 I parallelised the outer loop in the \texttt{timestep} procedure with OpenMP and set the \texttt{I\_MPI\_PIN\_DOMAIN} environment variable to \texttt{socket}.
 
 I tested my implementation with eight processes---one per socket across four nodes---communicating via MPI, with each process creating fourteen threads.
 Table \ref{tab:hybrid} displays the results of my experiment.
-As anticipated, the hybrid implementation was faster for the smaller grids, and the grid I produced myself.
+As anticipated, the hybrid implementation was faster for the smaller grids and the grid I produced myself.
 
 \begin{table}[htbp]
   \begin{center}
@@ -868,7 +867,7 @@ As anticipated, the hybrid implementation was faster for the smaller grids, and 
 
 OpenCL is a framework for heterogeneous computing used for GPU programming.
 GPUs typically have 3--5x the memory bandwidth and 5--10x the peak FLOP/s that CPUs have.
-In BC4 a single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth and 9.8x the peak double-precision performance that two Intel E5-2840 v4 CPUs have \cite{youtube}.
+A single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth and 9.8x the peak double-precision performance that two Intel E5-2840 v4 CPUs have \cite{youtube}.
 Therefore, I sought to produce an implementation of LBM built with OpenCL to run on a GPU.
 
 \subsection{Implementation}
@@ -884,8 +883,8 @@ For each timestep, the \texttt{timestep} kernel performed a parallel reduction t
 I opted to implement a parallel reduction to minimise the number of addition operations.
 I summed the average velocities of each work-group on the host device once all iterations had been complete.
 
-Table \ref{tab:OpenCL} displays my OpenCL implementation's execution times when run on a single BC4 GPU node, and speedup over my 28 process MPI implementation run on a single compute node.
-The OpenCL implementation was slower for the smaller two rid sizes but faster for the larger two grid size.
+Table \ref{tab:OpenCL} displays my OpenCL implementation's execution times when run on a single BC4 GPU node and speedup over my 28 process MPI implementation run on a single compute node.
+The OpenCL implementation was slower for the smaller two grids but faster for the larger two grids.
 One reason for this was because for the smaller grids, the time taken by the host program to create and build the program, set up and manage the environment, and create and manage the kernels represented a far more significant proportion of the runtime.
 For example, for the $128 \times 128$ grid, creating and building the program constituted almost 60\% of the total execution time of my OpenCL program.
 Another reason was that the smaller grids fitted into the smaller cache levels with higher memory bandwidths on my MPI implementation.
@@ -923,8 +922,8 @@ The optimal local size was $64$ cells in the $x$-direction, and two cells in the
 
 \section{Conclusion}
 
-In conclusion, all three of the implementations I produced and tested significantly improved the performance of \texttt{d2q9-bgk.c} by utilising different levels of parallelism.
-For the largest grid size, my OpenCL implementation was the fastest on a single node due to GPUs' large memory bandwidth and peak performance.
+In conclusion, all three of my implementations significantly improved the performance of \texttt{d2q9-bgk.c} by utilising different levels of parallelism.
+My OpenCL implementation was the fastest for the largest two grids on a single node due to GPUs' large memory bandwidth and peak performance.
 However, both my MPI and hybrid implementations were more scalable since they could utilise the computing power of multiple nodes.
 
 \printbibliography

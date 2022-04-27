@@ -40,7 +40,7 @@ However, it was limited to a single node of BC4, which was a considerable restri
 
 Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
 Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
-Therefore, I hypothesised that implementation \texttt{d2q9-bgk.c} with distributed memory parallelism that ran on multiple processes across multiple nodes---with MPI used for interprocess communication---would provide an even more significant speedup.
+Therefore, I hypothesised that implementing \texttt{d2q9-bgk.c} with distributed memory parallelism to run on multiple processes across multiple nodes---with MPI used for interprocess communication---would provide an even more significant speedup.
 
 \subsection{Compiler}
 
@@ -119,14 +119,14 @@ My program achieved the speedup over my optimised serial implementation by execu
 \subsection{Reduction Optimisation}
 
 I hypothesised that using the \texttt{MPI\_Reduce} procedure to compute the average velocities would speed up the collation time of my program.
-Table \ref{tab:reduction} contains the collation times for this implementation and speedup over the prior implementation.
+Table \ref{tab:reduction} contains the collation times for this implementation and speedup over my prior implementation.
 Using \texttt{MPI\_Reduce} led to a significant reduction in collation time.
 However, this did not significantly affect the overall execution time because the collation time was significantly shorter than the compute time.
 There would be a more significant impact on the overall execution time for inputs with more iterations.
 
 \begin{table}[htbp]
   \begin{center}
-  \caption{Collate times for my 112 process MPI implementation with the reduction and speedup over the prior implementation}\label{tab:reduction}
+  \caption{Collate times for my 112 process MPI implementation with the reduction and speedup over my prior implementation}\label{tab:reduction}
   \begin{tabular}[t]{l | l l} 
       \hline\hline
       Grid Size&Time (s)&Speedup\\
@@ -155,7 +155,7 @@ Figure \ref{fig:roofline} displays a roofline chart for the \texttt{timestep} pr
   \caption{Roofline model of the \texttt{timestep} loop for the $1024\times1024$ test case}\label{fig:roofline}
 \end{figure}
 
-On the $1024 \times 1024$ test case, each process in my MPI implementation achieved an arithmetic intensity of 0.533 FLOP/Byte and 16.905 FLOP/s of performance during the \texttt{timestep} procedure.
+On the $1024 \times 1024$ test case, each process in my MPI implementation achieved an arithmetic intensity of 0.53 FLOP/byte and 16.91 FLOP/s of performance during the \texttt{timestep} procedure.
 The arithmetic intensity was similar to my optimised serial implementation because I made only minor changes to the procedure.
 However, the performance increased by 35\% due to fewer interactions with the DRAM, which had a lower memory bandwidth.
 For example, in the \texttt{timestep} procedure in my MPI implementation, less than 0.01 GB of data was passed through DRAM.
@@ -658,7 +658,7 @@ Perfect linear scaling was impossible to achieve for several reasons.
 Firstly, the program contained serial sections, notably the \texttt{initialisation} and \texttt{collate} procedures; in fact, the duration of the \texttt{collate} procedure increased with each additional process.
 Secondly, since the number of processes was rarely a factor of the grid's $y$-length, there was often a tiny load imbalance.
 
-Notably, larger grids benefitted more from a distributed parallel implementation than the smaller ones, which occurred for several reasons.
+Notably, the larger grids benefitted more from a distributed parallel implementation than the smaller ones, which occurred for several reasons.
 Firstly, the larger grids benefitted more from being split sufficiently small to fit into the smaller cache levels with higher memory bandwidths.
 Secondly, the larger grids were more evenly divided by the number of threads.
 
@@ -827,7 +827,7 @@ The overhead arose from creating and synchronising threads with each timestep in
 In my MPI implementation, the overhead arose from the initialisation of the MPI environment and the halo exchange.
 For smaller grids, the MPI environment initialisation dominated my program's execution time; for the $128 \times 128$ grid, the initialisation section of the program constituted 70\% of the total execution time.
 Moreover, the initialisation time initially increased as the number of processes increased.
-The proportionally large initialisation time meant that the the MPI implementation scaled significantly worse for the smaller grid.
+The proportionally large initialisation time meant that my MPI implementation scaled significantly worse for the smaller grid.
 However, the compute time of my MPI implementation was shorter for each grid due to the overhead introduced by OpenMP.
 Therefore, for the larger grid, in which the compute time constituted a more significant proportion of the total runtime, both implementations scaled equally.
 
@@ -875,7 +875,7 @@ Therefore, I sought to produce an implementation of LBM built with OpenCL to run
 I used my optimised serial implementation as a starting point for my host program.
 To ensure my program was portable, I used the \texttt{clGetPlatformIDs} and \texttt{clGetDeviceIDs} procedures to produce an array of all devices available to the host program.
 I selected the device defined by the \texttt{OCL\_DEVICE} environment variable and created a single context and a single in-order queue for the device.
-I kept \texttt{cells} and \texttt{cells\_new} data in the SoA format since coalesced memory accesses were key for high bandwidth.
+I kept the \texttt{cells} and \texttt{cells\_new} data in the SoA format since coalesced memory accesses were key for high bandwidth.
 
 I converted the \texttt{accelerate\_flow} and \texttt{timestep} procedures into kernels to run on the GPU.
 Transferring memory between host and device is a slow operation; therefore, I opted to store the partial average velocities of each timestep in global memory on the device.

@@ -36,7 +36,7 @@
 \subsection{Hypothesis}
 
 My OpenMP implementation of \texttt{d2q9-bgk.c} with shared-memory parallelism achieved a substantial speedup over my optimised serial implementation.
-However, it was limited to a single node of BC4, which was a considerable restriction.
+However, it was limited to a single node of BlueCrystal Phase 4 (BC4), which was a considerable restriction.
 
 Single program, multiple data (SPMD) is a form of parallelism in which independent processes run the same program.
 Message Passing Interface (MPI) is a specification for a library interface for passing messages between processes.
@@ -93,8 +93,8 @@ The \texttt{collate} procedure then multiplied each element by \texttt{params.nu
 \subsection{Results}
 
 Table \ref{tab:mpi} displays the results of my 112 process MPI implementation.
-Each time was an average of three runs on BlueCrystal Phase 4 (BC4) compute nodes, which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-My MPI implementation provided a substantial speedup over my optimised serial implementation and my OpenMP implementation.
+Each time was an average of three runs on BC4 compute nodes, which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
+My MPI implementation provided a substantial speedup over my optimised serial implementation for all grids, and my OpenMP implementation for the larger two grids.
 My program achieved the speedup over my optimised serial implementation by executing sections of the \texttt{timestep} procedure in parallel, utilising 112 times more L1 and L2 cache and eight times more L3 cache.
 
 \begin{table}[htbp]
@@ -670,7 +670,7 @@ As mentioned, the superlinear speedup at this point occurred because the grid wa
 
 I sought to investigate whether a hybrid implementation that used MPI and OpenMP would execute faster than my MPI implementation.
 
-\subsection{OpenMP vs MPI Scaling}
+\subsection{MPI vs OpenMP Scaling}
 
 Before producing my hybrid implementation, I compared the speedup curves of my MPI implementation to those of my OpenMP implementation.
 Figure \ref{fig:scaling_openmp_mpi} displays the speedup curves of these two implementations for the $128 \times 128$ and the $1024 \times 1024$ grids.

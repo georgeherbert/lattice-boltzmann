@@ -5,4 +5,3 @@ module load languages/intel/2020-u4
 module load CUDA
 
 export OCL_DEVICE=1
-export OMP_NUM_THREADS=28

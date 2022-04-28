@@ -94,7 +94,7 @@ The \texttt{collate} procedure then multiplied each element by \texttt{params.nu
 
 Table \ref{tab:mpi} displays the results of my 112 process MPI implementation.
 Each time was an average of three runs on BC4 compute nodes, which were each a Lenovo nx360 M5, which contained two 14-core 2.4 GHz Intel E5-2680 v4 (Broadwell) CPUs and 128 GiB of RAM \cite{bcp4}.
-My MPI implementation provided a substantial speedup over my optimised serial implementation for all grids, and my OpenMP implementation for the larger two grids.
+My MPI implementation provided a substantial speedup over my optimised serial implementation for all grids and my OpenMP implementation for the larger two grids.
 My program achieved the speedup over my optimised serial implementation by executing sections of the \texttt{timestep} procedure in parallel, utilising 112 times more L1 and L2 cache and eight times more L3 cache.
 
 \begin{table}[htbp]
@@ -825,16 +825,16 @@ My OpenMP implementation scaled better for the smaller grid, and both implementa
 The scaling difference occurred because each implementation had different overheads.
 The overhead arose from creating and synchronising threads with each timestep in my OpenMP implementation.
 In my MPI implementation, the overhead arose from the initialisation of the MPI environment and the halo exchange.
-For smaller grids, the MPI environment initialisation dominated my program's execution time; for the $128 \times 128$ grid, the initialisation section of the program constituted 70\% of the total execution time.
+For smaller grids, the MPI environment initialisation dominated my program's execution time; for the $128 \times 128$ grid, the initialisation section of the program constituted 70\% of the total execution time when run with 28 processes.
 Moreover, the initialisation time initially increased as the number of processes increased.
 The proportionally large initialisation time meant that my MPI implementation scaled significantly worse for the smaller grid.
 However, the compute time of my MPI implementation was shorter for each grid due to the overhead introduced by OpenMP.
-Therefore, for the larger grid, in which the compute time constituted a more significant proportion of the total runtime, both implementations scaled equally.
+Therefore, both implementations scaled equally for the larger grid, in which the compute time constituted a more significant proportion of the total runtime.
 
 \subsection{Implementation}
 
 Having understood how my OpenMP and MPI implementations scaled, I hypothesised that a hybrid implementation would reduce the execution times for small grids due to the proportionally large initialisation time of the MPI environment.
-Furthermore, I also hypothesised that a hybrid implementation would reduce the execution times for grids with a small $y$-length, but a significantly large $x$-length.
+Furthermore, I also hypothesised that a hybrid implementation would reduce the execution times for grids with a small $y$-length but a significantly large $x$-length.
 I believed the overhead introduced by the high number of large halo exchanges would be more significant than the overhead introduced by creating and synchronising OpenMP threads; I produced an additional grid to test this hypothesis.
 
 Using my prior implementation as a starting point, I replaced the call to the \texttt{MPI\_Init} procedure with a call to the \texttt{MPI\_Init\_thread} procedure, passing \texttt{MPI\_THREAD\_FUNNELED} as the third argument since only the main thread was to make MPI calls.
@@ -866,7 +866,7 @@ As anticipated, the hybrid implementation was faster for the smaller grids and t
 \section{GPU Programming}
 
 OpenCL is a framework for heterogeneous computing used for GPU programming.
-GPUs typically have 3--5x the memory bandwidth and 5--10x the peak FLOP/s that CPUs have.
+GPUs typically have 3--5x the memory bandwidth and 5--10x the peak FLOP/s CPUs have.
 A single NVIDIA Tesla P100 has 4.8x the peak memory bandwidth and 9.8x the peak double-precision performance that two Intel E5-2840 v4 CPUs have \cite{youtube}.
 Therefore, I sought to produce an implementation of LBM built with OpenCL to run on a GPU.
 
